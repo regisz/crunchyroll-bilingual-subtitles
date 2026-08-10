@@ -12,7 +12,7 @@
         "message": "批量翻译失败"
     },
     "model_placeholder": {
-        "message": "moonshotai/kimi-k2.5-0127"
+        "message": "gpt-4o-mini"
     },
     "lang_ms_my": {
         "message": "马来语 (ms-MY)"
@@ -33,7 +33,7 @@
         "message": "翻译引擎"
     },
     "api_url_placeholder": {
-        "message": "https://openrouter.ai/api/v1/chat/completions"
+        "message": "https://api.openai.com/v1/chat/completions"
     },
     "lang_id_id": {
         "message": "印度尼西亚语 (id-ID)"
@@ -57,7 +57,7 @@
         "message": "并发请求"
     },
     "api_key_placeholder": {
-        "message": "sk-or-v1-..."
+        "message": "sk-..."
     },
     "log_model_no_json": {
         "message": "大模型未返回包含 { } 的有效 JSON 字典"
@@ -202,5 +202,56 @@
     },
     "reset_style_btn": {
         "message": "重置位置与样式"
+    },
+    "lang_hu_hu": {
+        "message": "匈牙利语 (hu-HU)"
+    },
+    "provider_label": {
+        "message": "AI Provider"
+    },
+    "provider_openai": {
+        "message": "OpenAI GPT"
+    },
+    "provider_gemini": {
+        "message": "Google Gemini"
+    },
+    "provider_claude": {
+        "message": "Anthropic Claude"
+    },
+    "provider_openrouter": {
+        "message": "OpenRouter"
+    },
+    "provider_custom": {
+        "message": "Custom endpoint"
+    },
+    "load_models_button": {
+        "message": "Load models"
+    },
+    "model_select_placeholder": {
+        "message": "Select a model…"
+    },
+    "model_manual_option": {
+        "message": "Other (type manually)…"
+    },
+    "models_need_api_key": {
+        "message": "Enter API key to load models"
+    },
+    "models_need_api_url": {
+        "message": "Enter API URL to load models"
+    },
+    "models_need_model": {
+        "message": "Please select a model"
+    },
+    "models_loading": {
+        "message": "Loading models…"
+    },
+    "models_empty": {
+        "message": "No chat models found"
+    },
+    "models_loaded": {
+        "message": "Loaded {count} models"
+    },
+    "models_load_failed": {
+        "message": "Failed to load models"
     }
 }

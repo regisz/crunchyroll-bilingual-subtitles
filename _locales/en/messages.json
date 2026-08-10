@@ -15,7 +15,7 @@
         "message": "[AI translation in progress...]"
     },
     "model_placeholder": {
-        "message": "moonshotai/kimi-k2.5-0127"
+        "message": "gpt-4o-mini"
     },
     "mode_fallback": {
         "message": "Official First, AI Fallback"
@@ -51,7 +51,7 @@
         "message": "Concurrent Requests"
     },
     "api_key_placeholder": {
-        "message": "sk-or-v1-..."
+        "message": "sk-..."
     },
     "log_model_no_json": {
         "message": "Model did not return valid JSON object containing { }"
@@ -72,7 +72,7 @@
         "message": "Batch translation failed"
     },
     "api_url_placeholder": {
-        "message": "https://openrouter.ai/api/v1/chat/completions"
+        "message": "https://api.openai.com/v1/chat/completions"
     },
     "effort_high": {
         "message": "High (Deep reasoning, slower speed)"
@@ -205,5 +205,56 @@
     },
     "reset_style_btn": {
         "message": "Reset Style & Pos"
+    },
+    "lang_hu_hu": {
+        "message": "Hungarian (hu-HU)"
+    },
+    "provider_label": {
+        "message": "AI Provider"
+    },
+    "provider_openai": {
+        "message": "OpenAI GPT"
+    },
+    "provider_gemini": {
+        "message": "Google Gemini"
+    },
+    "provider_claude": {
+        "message": "Anthropic Claude"
+    },
+    "provider_openrouter": {
+        "message": "OpenRouter"
+    },
+    "provider_custom": {
+        "message": "Custom endpoint"
+    },
+    "load_models_button": {
+        "message": "Load models"
+    },
+    "model_select_placeholder": {
+        "message": "Select a model…"
+    },
+    "model_manual_option": {
+        "message": "Other (type manually)…"
+    },
+    "models_need_api_key": {
+        "message": "Enter API key to load models"
+    },
+    "models_need_api_url": {
+        "message": "Enter API URL to load models"
+    },
+    "models_need_model": {
+        "message": "Please select a model"
+    },
+    "models_loading": {
+        "message": "Loading models…"
+    },
+    "models_empty": {
+        "message": "No chat models found"
+    },
+    "models_loaded": {
+        "message": "Loaded {count} models"
+    },
+    "models_load_failed": {
+        "message": "Failed to load models"
     }
 }
