@@ -2,12 +2,24 @@
 // background.js - 强力抗错位 ID 锚定 + 自动重传版 + 实时流式(Streaming)支持
 // ==========================================
 
+importScripts("models-api.js");
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "translate_batch") {
         handleBatchTranslation(request.lines, request.settings)
             .then(res => sendResponse({ success: true, data: res }))
             .catch(err => {
                 console.error("[CR Bilingual Subtitles] Batch translation failed:", err);
+                sendResponse({ success: false, error: err.message });
+            });
+        return true;
+    }
+
+    if (request.action === "list_models") {
+        listProviderModels(request.provider, request.apiKey, request.apiUrl)
+            .then(models => sendResponse({ success: true, models }))
+            .catch(err => {
+                console.error("[CR Bilingual Subtitles] Model list failed:", err);
                 sendResponse({ success: false, error: err.message });
             });
         return true;
@@ -33,59 +45,142 @@ chrome.runtime.onConnect.addListener((port) => {
 // ✨ 共享工具：构建请求体 / 严格解析 / 流式增量解析
 // ====================================================
 
-function buildTranslationPayload(lines, settings) {
-    const { secondLang, aiModel, reasoningEnabled } = settings;
-    // 默认开启推理（与改造前 medium 行为一致）；关闭时走 enabled:false 以省额度/提速
-    const reasoningOn = reasoningEnabled !== false;
-    const isOpenAIReason = aiModel && (aiModel.includes('o1') || aiModel.includes('o3'));
+const LANG_DISPLAY_NAMES = {
+    'zh-CN': 'Simplified Chinese',
+    'zh-HK': 'Traditional Chinese',
+    'en-US': 'English',
+    'es-419': 'Latin American Spanish',
+    'es-ES': 'Spanish',
+    'pt-BR': 'Brazilian Portuguese',
+    'fr-FR': 'French',
+    'de-DE': 'German',
+    'hu-HU': 'Hungarian',
+    'it-IT': 'Italian',
+    'ru-RU': 'Russian',
+    'ar-SA': 'Arabic',
+    'vi-VN': 'Vietnamese',
+    'th-TH': 'Thai',
+    'id-ID': 'Indonesian',
+    'ms-MY': 'Malay'
+};
 
-    let effortPrompt = "";
+function resolveTargetLanguageName(secondLang) {
+    if (!secondLang) return 'the target language';
+    return LANG_DISPLAY_NAMES[secondLang] || secondLang;
+}
 
+function isOpenRouterEndpoint(apiUrl) {
+    return typeof apiUrl === 'string' && apiUrl.includes('openrouter.ai');
+}
+
+function isAnthropicEndpoint(apiUrl) {
+    return typeof apiUrl === 'string' && apiUrl.includes('api.anthropic.com');
+}
+
+function isOpenAIEndpoint(apiUrl) {
+    return typeof apiUrl === 'string' && apiUrl.includes('api.openai.com');
+}
+
+function isGeminiEndpoint(apiUrl) {
+    return typeof apiUrl === 'string' && apiUrl.includes('generativelanguage.googleapis.com');
+}
+
+function isReasoningStyleModel(aiModel) {
+    const m = (aiModel || '').toLowerCase();
+    // o-series + gpt-5* often reject temperature / classic max_tokens
+    return /(^|\/)o[0-9]/.test(m) || m.includes('gpt-5');
+}
+
+function usesMaxCompletionTokens(aiModel) {
+    const m = (aiModel || '').toLowerCase();
+    return /(^|\/)o[0-9]/.test(m) || m.includes('gpt-5');
+}
+
+function buildTranslationPayload(lines, settings, tweaks = {}) {
+    const { secondLang, aiModel, apiUrl, reasoningEnabled } = settings;
+    const reasoningOn = reasoningEnabled === true;
+    const model = aiModel || 'gpt-4o-mini';
+    const langName = resolveTargetLanguageName(secondLang);
+    const omitTemperature = tweaks.omitTemperature === true || isReasoningStyleModel(model);
+    const useMaxCompletion = tweaks.useMaxCompletionTokens === true || usesMaxCompletionTokens(model);
+
+    let effortPrompt = '';
     if (!reasoningOn) {
-        // 关闭推理：明确指令模型不要思考，直接给出 JSON
-        effortPrompt = "\n[CRITICAL WARNING]: SKIP ALL REASONING. IMMEDIATELY output the final JSON object.";
+        effortPrompt = '\n[CRITICAL WARNING]: SKIP ALL REASONING. IMMEDIATELY output the final JSON object.';
     }
 
     const linesObj = {};
     lines.forEach((line, index) => { linesObj[index] = line; });
 
     const payload = {
-        model: aiModel || "gpt-3.5-turbo",
+        model,
         messages: [
             {
-                role: "system",
-                content: `You are an expert anime subtitle translator. Translate the values of the JSON object into ${secondLang}.
+                role: 'system',
+                content: `You are an expert anime subtitle translator. Translate each JSON value into natural spoken ${langName} suitable for on-screen anime subtitles (target locale: ${secondLang}).
 CRITICAL RULES:
 1. Output ONLY a valid JSON object matching the exact keys (0, 1, 2...) of the input.
-2. DO NOT merge sentences. Keep a strict 1-to-1 mapping for every key.
+2. DO NOT merge or split sentences. Keep a strict 1-to-1 mapping for every key.
 3. DO NOT output markdown formatting or \`\`\`json.
-4. NO conversational text before or after the JSON.${effortPrompt}`
+4. NO conversational text before or after the JSON.
+5. Keep lines short and natural for spoken dialogue; match character tone and emotion.
+6. Localize honorifics and cultural references when natural in ${langName}; do not add translator notes.${effortPrompt}`
             },
-            { role: "user", content: JSON.stringify(linesObj) }
-        ],
-        temperature: 0.1
+            { role: 'user', content: JSON.stringify(linesObj) }
+        ]
     };
 
-    if (isOpenAIReason) {
-        // OpenAI o1/o3 系列不支持 reasoning:{enabled:false}，只用 reasoning_effort 控制
-        payload.reasoning_effort = reasoningOn ? "medium" : "low";
-    } else if (!reasoningOn) {
-        // ✨ OpenRouter 推理控制：enabled:false 由各 provider 可靠生效
-        //    （Novita 等会无视 max_tokens 上限，但会遵守 enabled:false）
+    // Native OpenAI/Gemini/Claude reject unknown fields — only send widely supported params
+    if (!omitTemperature) payload.temperature = 0.2;
+
+    if (useMaxCompletion) payload.max_completion_tokens = 4096;
+    else payload.max_tokens = 4096;
+
+    // OpenRouter-only extras
+    if (isOpenRouterEndpoint(apiUrl) && !reasoningOn && !isReasoningStyleModel(model)) {
         payload.reasoning = { enabled: false };
+    }
+
+    // OpenAI reasoning models: optional effort (never send OpenRouter `reasoning` object)
+    if (isOpenAIEndpoint(apiUrl) && isReasoningStyleModel(model) && /(^|\/)o[0-9]/.test(model.toLowerCase())) {
+        payload.reasoning_effort = reasoningOn ? 'medium' : 'low';
     }
 
     return payload;
 }
 
-function buildRequestHeaders(apiKey) {
-    const headers = {
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://www.crunchyroll.com',
-        'X-Title': 'CR Dual Subs Plugin'
-    };
+function buildRequestHeaders(apiKey, apiUrl) {
+    const headers = { 'Content-Type': 'application/json' };
     if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+    // OpenRouter ranking headers only — native APIs can be picky about extras
+    if (isOpenRouterEndpoint(apiUrl)) {
+        headers['HTTP-Referer'] = 'https://www.crunchyroll.com';
+        headers['X-Title'] = 'CR Dual Subs Plugin';
+    }
+    if (isAnthropicEndpoint(apiUrl)) {
+        headers['anthropic-version'] = '2023-06-01';
+    }
     return headers;
+}
+
+function truncateError(text, n = 180) {
+    return String(text || '').replace(/\s+/g, ' ').trim().substring(0, n);
+}
+
+function payloadTweaksFromHttp400(errorText) {
+    const t = (errorText || '').toLowerCase();
+    const tweaks = {};
+    if (t.includes('unsupported') && t.includes('max_tokens')) {
+        tweaks.useMaxCompletionTokens = true;
+    }
+    if (t.includes('unsupported') && t.includes('max_completion_tokens')) {
+        tweaks.useMaxCompletionTokens = false;
+    }
+    if (t.includes('unsupported') && t.includes('temperature')) {
+        tweaks.omitTemperature = true;
+    }
+    return tweaks;
 }
 
 // 严格解析模型最终输出：返回完整对齐的数组，任何 key 缺失/为空则抛错触发重试
@@ -161,31 +256,37 @@ function extractPartialTranslations(content, count) {
 
 async function handleBatchTranslation(lines, settings) {
     const { secondLang, transEngine, apiUrl, aiModel, apiKey, reasoningEnabled } = settings;
-    const MAX_RETRIES = 3; // max retries: 3
+    const MAX_RETRIES = 3;
 
     if (transEngine === 'custom_llm' && apiUrl) {
-        const payload = buildTranslationPayload(lines, settings);
-        const headers = buildRequestHeaders(apiKey);
+        const headers = buildRequestHeaders(apiKey, apiUrl);
+        let tweaks = {};
 
-        // ====================================================
-        // ✨ AI Model API auto-retry loop
-        // ====================================================
         let lastError = null;
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
+                const payload = buildTranslationPayload(lines, settings, tweaks);
                 const res = await fetch(apiUrl, { method: 'POST', headers, body: JSON.stringify(payload) });
 
                 if (!res.ok) {
                     const errorText = await res.text();
                     const status = res.status;
 
-                    // Critical error，直接熔断（Key 错误、接口地址错误、余额不足等）
                     if (status === 401 || status === 403 || status === 404 || status === 402) {
-                        throw new Error(`Critical error HTTP ${status}: ${errorText.substring(0, 40)}`);
+                        throw new Error(`Critical error HTTP ${status}: ${truncateError(errorText)}`);
                     }
 
-                    // 非Critical error（429 限流、500/502 服务器崩溃），抛出异常交给重试机制
-                    throw new Error(`HTTP ${status}: ${errorText.substring(0, 40)}`);
+                    if (status === 400) {
+                        const next = payloadTweaksFromHttp400(errorText);
+                        tweaks = { ...tweaks, ...next };
+                        // gpt-4o-mini / Gemini sometimes still want classic max_tokens; if unclear, try both shapes
+                        if (!Object.keys(next).length) {
+                            tweaks.omitTemperature = true;
+                            tweaks.useMaxCompletionTokens = !tweaks.useMaxCompletionTokens;
+                        }
+                    }
+
+                    throw new Error(`HTTP ${status}: ${truncateError(errorText)}`);
                 }
 
                 const data = await res.json();
@@ -199,13 +300,9 @@ async function handleBatchTranslation(lines, settings) {
 
             } catch (e) {
                 lastError = e;
-                // 如果是Critical error，停止重试
                 if (e.message.includes('Critical error')) throw e;
-
-                // 如果已经达到最大重试次数，抛出最终错误
                 if (attempt === MAX_RETRIES) break;
 
-                // 计算退避延迟 (Exponential Backoff)，如果是 429 错误则惩罚时间翻倍
                 let delay = 1000 * attempt;
                 if (e.message.includes('429')) delay = 2500 * attempt;
 
@@ -250,7 +347,7 @@ async function handleBatchTranslation(lines, settings) {
                 if (attempt === MAX_RETRIES) break;
                 
                 let delay = 1500 * attempt;
-                if (e.message.includes('429')) delay = 3000 * attempt; // Google 429 惩罚期更长
+                if (e.message.includes('429')) delay = 3000 * attempt;
                 
                 console.warn(`[CR Bilingual Subtitles] Google translation failed, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
                 await new Promise(r => setTimeout(r, delay));
@@ -281,25 +378,33 @@ async function handleStreamTranslation(lines, settings, port) {
         return;
     }
 
-    const payload = buildTranslationPayload(lines, settings);
-    payload.stream = true;
-    const headers = buildRequestHeaders(apiKey);
-
+    const headers = buildRequestHeaders(apiKey, apiUrl);
     const MAX_RETRIES = 3;
     let lastError = null;
     let lastPartialsSig = '';
+    let tweaks = {};
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
+            const payload = buildTranslationPayload(lines, settings, tweaks);
+            payload.stream = true;
             const res = await fetch(apiUrl, { method: 'POST', headers, body: JSON.stringify(payload) });
 
             if (!res.ok) {
                 const errorText = await res.text();
                 const status = res.status;
                 if (status === 401 || status === 403 || status === 404 || status === 402) {
-                    throw new Error(`Critical error HTTP ${status}: ${errorText.substring(0, 40)}`);
+                    throw new Error(`Critical error HTTP ${status}: ${truncateError(errorText)}`);
                 }
-                throw new Error(`HTTP ${status}: ${errorText.substring(0, 40)}`);
+                if (status === 400) {
+                    const next = payloadTweaksFromHttp400(errorText);
+                    tweaks = { ...tweaks, ...next };
+                    if (!Object.keys(next).length) {
+                        tweaks.omitTemperature = true;
+                        tweaks.useMaxCompletionTokens = !tweaks.useMaxCompletionTokens;
+                    }
+                }
+                throw new Error(`HTTP ${status}: ${truncateError(errorText)}`);
             }
 
             if (!res.body || !res.body.getReader) {
