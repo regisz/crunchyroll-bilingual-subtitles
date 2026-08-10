@@ -1,0 +1,212 @@
+{
+  "effort_none": {
+    "message": "Nincs (gyors válasz, figyelmen kívül hagyja a gondolkodást)"
+  },
+  "effort_medium": {
+    "message": "Közepes (alapértelmezett természetes gondolkodás)"
+  },
+  "effort_ultra": {
+    "message": "Ultra (extrém gondolkodás, nagyon lassú)"
+  },
+  "log_max_retries_failed": {
+    "message": "A maximális újrapróbálkozások száma elérve"
+  },
+  "toast_ai_translating": {
+    "message": "[AI fordítás folyamatban...]"
+  },
+  "model_placeholder": {
+    "message": "moonshotai/kimi-k2.5-0127"
+  },
+  "mode_fallback": {
+    "message": "Elsőként hivatalos felirat, majd AI visszaesés"
+  },
+  "batch_size_label": {
+    "message": "Kötegméret (mondatok)"
+  },
+  "translation_engine": {
+    "message": "Fordítási motor"
+  },
+  "lang_ms_my": {
+    "message": "Maláj (ms-MY)"
+  },
+  "lang_id_id": {
+    "message": "Indonéz (id-ID)"
+  },
+  "lang_en_us": {
+    "message": "Angol (en-US)"
+  },
+  "lang_zh_cn": {
+    "message": "Egyszerűsített kínai (zh-CN)"
+  },
+  "effort_low": {
+    "message": "Alacsony (a gondolkodás csak egy mondatra korlátozódik)"
+  },
+  "saving": {
+    "message": "Mentés..."
+  },
+  "lang_es_es": {
+    "message": "Spanyol - ES (es-ES)"
+  },
+  "concurrency_label": {
+    "message": "Párhuzamos kérések"
+  },
+  "api_key_placeholder": {
+    "message": "sk-or-v1-..."
+  },
+  "log_model_no_json": {
+    "message": "A modell nem érvényes JSON objektumot adott vissza"
+  },
+  "log_critical_error": {
+    "message": "Kritikus hiba HTTP"
+  },
+  "log_google_translation_failed": {
+    "message": "A Google-fordítás sikertelen, újrapróbálkozás"
+  },
+  "lang_pt_br": {
+    "message": "Portugál - BR (pt-BR)"
+  },
+  "log_retry_attempt": {
+    "message": "próbálkozás"
+  },
+  "log_batch_translation_failed": {
+    "message": "Kötegfordítás sikertelen"
+  },
+  "api_url_placeholder": {
+    "message": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  "effort_high": {
+    "message": "Magas (mély gondolkodás, lassabb sebesség)"
+  },
+  "save_button": {
+    "message": "Beállítások mentése és oldal frissítése"
+  },
+  "lang_es_419": {
+    "message": "Spanyol - LA (es-419)"
+  },
+  "log_subtitle_data": {
+    "message": "Felirata adatok"
+  },
+  "lang_it_it": {
+    "message": "Olasz (it-IT)"
+  },
+  "toast_fetching": {
+    "message": "[Regionális fordítás lekérése...]"
+  },
+  "lang_fr_fr": {
+    "message": "Francia (fr-FR)"
+  },
+  "lang_th_th": {
+    "message": "Thai (th-TH)"
+  },
+  "lang_vi_vn": {
+    "message": "Vietnámi (vi-VN)"
+  },
+  "log_json_parse_failed": {
+    "message": "JSON kinyerési hiba: Nem sikerült feldolgozni a modell válaszát"
+  },
+  "toast_translation_missing": {
+    "message": "[Fordítás hiányzik]"
+  },
+  "mode_force_ai": {
+    "message": "AI fordítás kényszerítése"
+  },
+  "lang_ru_ru": {
+    "message": "Orosz (ru-RU)"
+  },
+  "reasoning_effort_label": {
+    "message": "Gondolkodási erőfeszítés (kapcsold ki, ha spórolni akarsz a ingyenes szintű tokeneken és gyorsítani szeretnél)"
+  },
+  "streaming_label": {
+    "message": "Valós idejű streamelés (a fordítás megjelenítése közben is)"
+  },
+  "lang_ar_sa": {
+    "message": "Arab (ar-SA)"
+  },
+  "saved_refreshing": {
+    "message": "Mentve! Frissítés..."
+  },
+  "lang_de_de": {
+    "message": "Német (de-DE)"
+  },
+  "model_label": {
+    "message": "Modell neve"
+  },
+  "log_network_interceptor_loaded": {
+    "message": "Hálózati interceptor betöltve"
+  },
+  "extension_name": {
+    "message": "Crunchyroll AI kétnyelvű feliratok Pro"
+  },
+  "lang_zh_hk": {
+    "message": "Hagyományos kínai (zh-HK)"
+  },
+  "engine_google": {
+    "message": "Google ingyenes fordítás"
+  },
+  "api_key_label": {
+    "message": "API kulcs"
+  },
+  "target_language": {
+    "message": "Cél nyelv"
+  },
+  "extension_description": {
+    "message": "AI-alapú kétnyelvű feliratok, amelyek megkerülik a CSP korlátozásokat, és támogatják a valós idejű pozíció- és méretbeállításokat a lejátszóban."
+  },
+  "popup_title": {
+    "message": "Crunchyroll kétnyelvű feliratok"
+  },
+  "mode_native": {
+    "message": "Csak hivatalos"
+  },
+  "engine_custom": {
+    "message": "Egyéni AI modell (ajánlott)"
+  },
+  "translation_mode": {
+    "message": "Fordítási mód"
+  },
+  "api_url_label": {
+    "message": "API végpont URL"
+  },
+  "toast_parse_failed": {
+    "message": "Az elemzés sikertelen! Nincs hivatalos felirat, nincs tartalék fordítás."
+  },
+  "toast_no_official_subs": {
+    "message": "Nem található hivatalos felirat, az AI visszaesés letiltva."
+  },
+  "toast_loaded": {
+    "message": "Sikeresen betöltve [ENGINE]!"
+  },
+  "toast_connection_lost": {
+    "message": "[Kapcsolat elvesztve]"
+  },
+  "toast_api_error": {
+    "message": "Köteg API hiba: "
+  },
+  "toast_download_failed": {
+    "message": "A felirata fájl letöltése sikertelen."
+  },
+  "toast_no_dialogue": {
+    "message": "Nem volt feldolgozható párbeszéd!"
+  },
+  "style_adjust_btn": {
+    "message": "Stílusbeállítások"
+  },
+  "font_size_label": {
+    "message": "Betűméret"
+  },
+  "vertical_pos_label": {
+    "message": "Függőleges pozíció"
+  },
+  "font_color_label": {
+    "message": "Betűszín"
+  },
+  "bg_opacity_label": {
+    "message": "Háttér átlátszatlansága"
+  },
+  "reset_style_btn": {
+    "message": "Stílus és pozíció visszaállítása"
+  },
+  "lang_hu_hu": {
+    "message": "Magyar (hu-HU)"
+  }
+}
