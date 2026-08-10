@@ -5,17 +5,18 @@
 
 const FETCH_TIMEOUT_MS = 15000;
 const DEFAULT_SETTINGS = {
-    secondLang: "zh-CN", 
-    transMode: "fallback", 
+    secondLang: "hu-HU",
+    transMode: "fallback",
     transEngine: "custom_llm",
-    apiUrl: "https://openrouter.ai/api/v1/chat/completions", 
-    aiModel: "nemotron-3-super-120b-a12b:free", 
+    aiProvider: "openai",
+    apiUrl: "https://api.openai.com/v1/chat/completions",
+    aiModel: "gpt-4o-mini",
     apiKey: "",
-    subSize: 26, 
-    subBottom: 10, 
-    batchSize: 10, 
+    subSize: 26,
+    subBottom: 10,
+    batchSize: 10,
     concurrency: 3,
-    reasoningEnabled: true,
+    reasoningEnabled: false,
     streaming: true,
     subColor: "",
     subBgOpacity: 65,
@@ -26,29 +27,93 @@ const DEFAULT_SETTINGS = {
 
 const translationCache = {};
 
-(function injectOnce() {
-    if (window.__CR_DUAL_SUBS_INJECTED__) return;
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('inject.js');
-    script.onload = function() { this.remove(); };
-    (document.head || document.documentElement).appendChild(script);
-    window.__CR_DUAL_SUBS_INJECTED__ = true;
-})();
+function logDual(...args) {
+    console.log("[CR Bilingual Subtitles]", ...args);
+}
 
-let lastProcessedUrl = '';
-window.addEventListener("CR_SUBTITLE_DATA", (event) => {
-    if (!event.detail) return;
-    let detail;
-    try { detail = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail; } catch (e) { return; }
-    if (detail && !detail.url && !detail.data) detail = { url: "", options: {}, data: { subtitles: detail } };
+function handleSubtitlePayload(detail, via) {
+    if (!detail) return;
+    let parsed = detail;
+    try {
+        if (typeof detail === "string") parsed = JSON.parse(detail);
+    } catch (e) {
+        logDual("payload JSON parse failed via", via, e);
+        return;
+    }
+    if (parsed && !parsed.url && !parsed.data) {
+        parsed = { url: "", options: {}, data: { subtitles: parsed } };
+    }
+    if (!parsed || !parsed.data) {
+        logDual("payload missing data via", via);
+        return;
+    }
 
-    if (detail.url && detail.url === lastProcessedUrl) return;
-    lastProcessedUrl = detail.url;
+    if (parsed.url && parsed.url === lastProcessedUrl) {
+        logDual("duplicate playback url ignored");
+        return;
+    }
+    if (parsed.url) lastProcessedUrl = parsed.url;
+
+    logDual("payload received via", via, {
+        subs: parsed.data.subtitles ? Object.keys(parsed.data.subtitles) : [],
+        caps: parsed.data.captions ? Object.keys(parsed.data.captions) : []
+    });
 
     chrome.storage.local.get(DEFAULT_SETTINGS, (settings) => {
-        if (settings.secondLang !== "none") initDualSubs(detail, settings);
+        if (chrome.runtime.lastError) {
+            logDual("storage error", chrome.runtime.lastError.message);
+            showToast("Storage error: " + chrome.runtime.lastError.message, true);
+            return;
+        }
+        logDual("settings", {
+            lang: settings.secondLang,
+            mode: settings.transMode,
+            engine: settings.transEngine,
+            model: settings.aiModel,
+            hasKey: !!settings.apiKey
+        });
+        if (settings.secondLang !== "none") initDualSubs(parsed, settings);
         else removeExistingSubtitles();
     });
+}
+
+function readDomBridgePayload() {
+    const raw = document.documentElement.getAttribute("data-cr-dual-subs");
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+}
+
+let lastProcessedUrl = "";
+logDual("content script ready");
+
+// DOM bridge (attribute is shared across MAIN / isolated worlds)
+document.documentElement.addEventListener("cr-dual-subs-ready", () => {
+    const payload = readDomBridgePayload();
+    if (payload) handleSubtitlePayload(payload, "dom-event");
+});
+
+// Poll briefly in case the event fired before listener attach (rare)
+(function pollDomBridge() {
+    let tries = 0;
+    const id = setInterval(() => {
+        tries++;
+        const payload = readDomBridgePayload();
+        if (payload && payload.url && payload.url !== lastProcessedUrl) {
+            handleSubtitlePayload(payload, "dom-poll");
+        }
+        if (tries >= 40) clearInterval(id); // ~20s
+    }, 500);
+})();
+
+// postMessage backup
+window.addEventListener("message", (event) => {
+    const data = event.data;
+    if (!data || data.source !== "CR_DUAL_SUBS" || data.type !== "CR_SUBTITLE_DATA") return;
+    handleSubtitlePayload(data.payload, "postMessage");
 });
 
 function showToast(message, isError = true) {
@@ -56,11 +121,11 @@ function showToast(message, isError = true) {
     if (toast) toast.remove();
     toast = document.createElement('div');
     toast.id = 'cr-dual-sub-toast';
-    toast.style.cssText = `position:absolute; top:20px; left:20px; background:${isError ? 'rgba(220, 53, 69, 0.9)' : 'rgba(40, 167, 69, 0.9)'}; color:white; padding:10px 15px; border-radius:6px; z-index:99999; font-weight:bold; font-family:sans-serif; pointer-events:none; box-shadow:0 4px 6px rgba(0,0,0,0.3);`;
+    toast.style.cssText = `position:absolute; top:20px; left:20px; background:${isError ? 'rgba(220, 53, 69, 0.9)' : 'rgba(40, 167, 69, 0.9)'}; color:white; padding:10px 15px; border-radius:6px; z-index:99999; font-weight:bold; font-family:sans-serif; pointer-events:none; box-shadow:0 4px 6px rgba(0,0,0,0.3); max-width:420px;`;
     toast.innerText = message;
     const container = document.querySelector('.bitmovinplayer-container') || document.body;
     container.appendChild(toast);
-    setTimeout(() => { if (toast) toast.remove(); }, 6000);
+    setTimeout(() => { if (toast) toast.remove(); }, 8000);
 }
 
 function findTrackInManifest(data, lang, preferCaptions = false) {
@@ -167,7 +232,14 @@ async function initDualSubs(detail, settings) {
         let parsedSubs = targetTrack.format === 'vtt' ? parseVTT(subText) : parseASS(subText);
         if (parsedSubs.length === 0) return showToast(chrome.i18n.getMessage("toast_no_dialogue"), true);
         renderSubtitlesOnVideo(parsedSubs, useAI, settings);
-        showToast(chrome.i18n.getMessage("toast_loaded"), false);
+        const engineLabel = useAI
+            ? (settings.transEngine === "custom_llm" ? (settings.aiModel || "AI") : "Google")
+            : "Official";
+        const loadedMsg = (chrome.i18n.getMessage("toast_loaded") || "Loaded [ENGINE]!").replace("[ENGINE]", engineLabel);
+        showToast(loadedMsg + (useAI && !settings.apiKey && settings.transEngine === "custom_llm" ? " (no API key!)" : ""), useAI && settings.transEngine === "custom_llm" && !settings.apiKey);
+        if (useAI && settings.transEngine === "custom_llm" && !settings.apiKey) {
+            console.warn("[CR Bilingual Subtitles] AI mode active but API key is empty");
+        }
     } catch (e) { showToast(chrome.i18n.getMessage("toast_download_failed")); }
 }
 
@@ -192,7 +264,8 @@ async function fetchAIBatchTranslation(linesArray, settings) {
                 resolve(response.data);
             } else {
                 consecutiveErrors++;
-                showToast(chrome.i18n.getMessage("toast_api_error"), true);
+                const errDetail = (response && response.error) ? String(response.error).slice(0, 120) : "";
+                showToast((chrome.i18n.getMessage("toast_api_error") || "API error: ") + errDetail, true);
                 resolve(linesArray.map(() => chrome.i18n.getMessage("toast_translation_missing")));
             }
         });
@@ -477,7 +550,7 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
                         });
                         if (hitsActive) renderActive();
                     },
-                    onDone: (data, success) => {
+                    onDone: (data, success, error) => {
                         chunk.forEach(t => inFlight.delete(t));
                         if (success && data) {
                             consecutiveErrors = 0;
@@ -487,7 +560,8 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
                             });
                         } else {
                             consecutiveErrors++;
-                            showToast(chrome.i18n.getMessage("toast_api_error"), true);
+                            const errDetail = error ? String(error).slice(0, 120) : "";
+                            showToast((chrome.i18n.getMessage("toast_api_error") || "API error: ") + errDetail, true);
                             chunk.forEach(t => delete streamingCache[t]);
                         }
                         if (currentDisplayedSourceText) renderActive();

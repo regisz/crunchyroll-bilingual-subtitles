@@ -1,5 +1,4 @@
-// inject.js
-// Network interceptor for Crunchyroll subtitle API
+// inject.js — MAIN world: intercept CR playback manifests and bridge to content.js
 (function() {
     if (window.__CR_DUAL_SUBS_INJECTED__) return;
     window.__CR_DUAL_SUBS_INJECTED__ = true;
@@ -9,33 +8,85 @@
     const originalFetch = window.fetch;
     const retryBackoffs = {};
 
+    function slimPlaybackData(data) {
+        return {
+            subtitles: data.subtitles || null,
+            captions: data.captions || null,
+            versions: (data.versions || []).map(v => ({
+                guid: v.guid,
+                audio_locale: v.audio_locale,
+                original: !!v.original
+            })),
+            assetId: data.assetId || null,
+            token: data.token || null
+        };
+    }
+
+    function emitSubtitleData(payload) {
+        const slim = {
+            url: payload.url,
+            options: { headers: payload.options && payload.options.headers ? payload.options.headers : {} },
+            data: slimPlaybackData(payload.data)
+        };
+        const serialized = JSON.stringify(slim);
+
+        // 1) DOM attribute + Event — most reliable across isolated worlds
+        try {
+            const root = document.documentElement;
+            root.setAttribute("data-cr-dual-subs", serialized);
+            root.dispatchEvent(new Event("cr-dual-subs-ready", { bubbles: true }));
+        } catch (e) {
+            console.warn("[CR Bilingual Subtitles] DOM bridge failed", e);
+        }
+
+        // 2) postMessage backup
+        try {
+            window.postMessage({
+                source: "CR_DUAL_SUBS",
+                type: "CR_SUBTITLE_DATA",
+                payload: slim
+            }, "*");
+        } catch (e) {
+            console.warn("[CR Bilingual Subtitles] postMessage failed", e);
+        }
+
+        console.log("[CR Bilingual Subtitles] Playback manifest captured", {
+            subs: slim.data.subtitles ? Object.keys(slim.data.subtitles) : [],
+            caps: slim.data.captions ? Object.keys(slim.data.captions) : []
+        });
+    }
+
+    function isPlaybackUrl(url) {
+        if (!url) return false;
+        const u = String(url);
+        return u.includes("/playback/") && u.includes("/play");
+    }
+
     window.fetch = async function(...args) {
         const response = await originalFetch.apply(this, args);
 
-        let reqUrl = '';
+        let reqUrl = "";
         let reqOptions = {};
         let reqHeaders = null;
 
-        if (typeof args[0] === 'string') {
+        if (typeof args[0] === "string") {
             reqUrl = args[0];
             reqOptions = args[1] || {};
             reqHeaders = reqOptions.headers;
-        } else if (args[0] && typeof args[0] === 'object') {
-            // Fix: support URL objects by checking href
+        } else if (args[0] && typeof args[0] === "object") {
             reqUrl = args[0].url || args[0].href || String(args[0]);
             reqOptions = args[1] || {};
             reqHeaders = reqOptions.headers || args[0].headers;
         }
 
-        // ✨ 核心修复：跳过插件内部发起的跨轨请求，彻底切断无限死循环！
-        if (reqUrl.includes('cr_cross_track=1')) {
+        if (reqUrl.includes("cr_cross_track=1")) {
             return response;
         }
 
         let safeHeaders = {};
         if (reqHeaders) {
             try {
-                if (typeof reqHeaders.forEach === 'function') {
+                if (typeof reqHeaders.forEach === "function") {
                     reqHeaders.forEach((val, key) => {
                         if (key && val) safeHeaders[key] = val;
                     });
@@ -44,36 +95,29 @@
                         safeHeaders[key] = reqHeaders[key];
                     });
                 }
-            } catch (e) {
-                console.debug("[CR双语插件] Failed to parse request headers", e);
-            }
+            } catch (e) { /* ignore */ }
         }
 
-        if (reqUrl && reqUrl.includes('/playback/v3/') && reqUrl.includes('/play')) {
-            const clone = response.clone(); // <--- Fix: Only clone when needed
+        if (isPlaybackUrl(reqUrl) && response && response.ok) {
+            const clone = response.clone();
             const retryKey = reqUrl;
 
             clone.json().then(data => {
                 if (data && (data.subtitles || data.captions)) {
-                    const payload = JSON.stringify({
+                    emitSubtitleData({
                         url: reqUrl,
                         options: { headers: safeHeaders },
                         data: data
                     });
-                    window.dispatchEvent(new CustomEvent("CR_SUBTITLE_DATA", { detail: payload }));
                     delete retryBackoffs[retryKey];
                 }
-            }).catch(e => {
+            }).catch(() => {
                 updateBackoff(retryKey);
             });
         }
 
         return response;
     };
-
-    function getBackoff(key) {
-        return retryBackoffs[key] || 500;
-    }
 
     function updateBackoff(key) {
         const current = retryBackoffs[key] || 500;
