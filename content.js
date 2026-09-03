@@ -97,6 +97,7 @@ setInterval(checkPathChange, 500);
 })();
 
 let lastProcessedUrl = '';
+let latestSubtitleDetail = null;
 window.addEventListener("CR_SUBTITLE_DATA", (event) => {
     if (!event.detail) return;
     let detail;
@@ -105,11 +106,44 @@ window.addEventListener("CR_SUBTITLE_DATA", (event) => {
 
     if (detail.url && detail.url === lastProcessedUrl) return;
     lastProcessedUrl = detail.url;
+    latestSubtitleDetail = detail;
 
     chrome.storage.local.get(DEFAULT_SETTINGS, (settings) => {
         if (settings.secondLang !== "none") initDualSubs(detail, settings);
         else removeExistingSubtitles();
     });
+});
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action !== "download_english_subtitle") return;
+
+    const data = latestSubtitleDetail && latestSubtitleDetail.data;
+    const englishTrack = data ? findTrackInManifest(data, "en-US", true) : null;
+    if (!englishTrack) {
+        sendResponse({ success: false, error: chrome.i18n.getMessage("download_english_unavailable") });
+        return;
+    }
+
+    fetch(englishTrack.url)
+        .then(response => {
+            if (!response.ok) throw new Error("Subtitle request failed");
+            return response.text();
+        })
+        .then(subtitleText => {
+            const blob = new Blob([subtitleText], { type: "text/vtt;charset=utf-8" });
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const episodeName = document.title.replace(/[\\/:*?"<>|]/g, "").trim() || "crunchyroll-episode";
+            link.href = downloadUrl;
+            link.download = `${episodeName}-en-US.vtt`;
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+            sendResponse({ success: true });
+        })
+        .catch(() => sendResponse({ success: false, error: chrome.i18n.getMessage("download_english_failed") }));
+
+    return true;
 });
 
 function showToast(message, isError = true) {

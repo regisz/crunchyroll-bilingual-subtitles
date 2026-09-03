@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const aiFields = document.getElementById("ai-fields");
     const engineSelect = document.getElementById("engine-select");
     const saveBtn = document.getElementById("save-btn");
+    const downloadEnBtn = document.getElementById("download-en-btn");
     const statusEl = document.getElementById("save-status");
 
     // I18N: set all dynamic text
@@ -18,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("label-batch").textContent = chrome.i18n.getMessage("batch_size_label");
     document.getElementById("label-concurrency").textContent = chrome.i18n.getMessage("concurrency_label");
     saveBtn.textContent = chrome.i18n.getMessage("save_button");
+    downloadEnBtn.textContent = chrome.i18n.getMessage("download_english_button");
 
     // I18N: set placeholders
     document.getElementById("api-url").placeholder = chrome.i18n.getMessage("api_url_placeholder");
@@ -84,6 +86,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     engineSelect.addEventListener("change", updateVisibility);
+
+    downloadEnBtn.addEventListener("click", () => {
+        downloadEnBtn.disabled = true;
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (!tabs[0]) {
+                showStatus(chrome.i18n.getMessage("download_english_failed"), "error");
+                downloadEnBtn.disabled = false;
+                return;
+            }
+
+            chrome.tabs.sendMessage(tabs[0].id, { action: "download_english_subtitle" }, (response) => {
+                downloadEnBtn.disabled = false;
+                if (chrome.runtime.lastError || !response || !response.success) {
+                    showStatus(response && response.error ? response.error : chrome.i18n.getMessage("download_english_unavailable"), "error");
+                    return;
+                }
+                showStatus(chrome.i18n.getMessage("download_english_started"), "success");
+            });
+        });
+    });
 
     saveBtn.addEventListener("click", () => {
         const settings = {

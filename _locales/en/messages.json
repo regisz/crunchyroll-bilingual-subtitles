@@ -188,6 +188,18 @@
     "toast_download_failed": {
         "message": "Subtitle file download failed."
     },
+    "download_english_button": {
+        "message": "Download English subtitles"
+    },
+    "download_english_started": {
+        "message": "English subtitles download started."
+    },
+    "download_english_unavailable": {
+        "message": "English subtitles are not available for this episode."
+    },
+    "download_english_failed": {
+        "message": "English subtitles download failed."
+    },
     "toast_no_dialogue": {
         "message": "No dialogue parsed!"
     },

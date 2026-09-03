@@ -185,6 +185,18 @@
   "toast_download_failed": {
     "message": "A felirata fájl letöltése sikertelen."
   },
+  "download_english_button": {
+    "message": "Angol felirat letöltése"
+  },
+  "download_english_started": {
+    "message": "Az angol felirat letöltése elindult."
+  },
+  "download_english_unavailable": {
+    "message": "Ehhez az epizódhoz nem érhető el angol felirat."
+  },
+  "download_english_failed": {
+    "message": "Az angol felirat letöltése sikertelen."
+  },
   "toast_no_dialogue": {
     "message": "Nem volt feldolgozható párbeszéd!"
   },
