@@ -10,12 +10,12 @@ const DEFAULT_SETTINGS = {
     transEngine: "custom_llm",
     aiProvider: "openai",
     apiUrl: "https://api.openai.com/v1/chat/completions",
-    aiModel: "gpt-4o-mini",
+    aiModel: "gpt-5.6-luna",
     apiKey: "",
     subSize: 26,
     subBottom: 10,
-    batchSize: 10,
-    concurrency: 3,
+    batchSize: 15,
+    concurrency: 2,
     reasoningEnabled: false,
     streaming: true,
     subColor: "",
@@ -25,7 +25,11 @@ const DEFAULT_SETTINGS = {
     subWidth: "100%"
 };
 
-const translationCache = {};
+// Cue-index keyed caches: same English text can need different translations by scene
+const translationByCue = {};
+const streamingByCue = {};
+const PRELOAD_AHEAD_SEC = 240; // ~4 minutes — avoid translating the whole episode up front
+const CONTEXT_LINES = 5;
 
 function logDual(...args) {
     console.log("[CR Bilingual Subtitles]", ...args);
@@ -53,6 +57,10 @@ function handleSubtitlePayload(detail, via) {
         return;
     }
     if (parsed.url) lastProcessedUrl = parsed.url;
+
+    // New episode / stream: drop previous cue translations
+    Object.keys(translationByCue).forEach(k => delete translationByCue[k]);
+    Object.keys(streamingByCue).forEach(k => delete streamingByCue[k]);
 
     logDual("payload received via", via, {
         subs: parsed.data.subtitles ? Object.keys(parsed.data.subtitles) : [],
@@ -244,12 +252,34 @@ async function initDualSubs(detail, settings) {
 }
 
 let consecutiveErrors = 0;
-async function fetchAIBatchTranslation(linesArray, settings) {
+function describeTranslationFailure(rawMessage) {
+    const msg = String(rawMessage || "").trim();
+    const lower = msg.toLowerCase();
+
+    if (!msg) return "A fordítási kérés sikertelen volt. Próbáld meg újra, vagy válassz egy másik modellt.";
+    if (lower.includes("api-kulcs") || lower.includes("unauthorized") || lower.includes("forbidden") || lower.includes("401") || lower.includes("403")) {
+        return "Az API-kulcs nem működik vagy nem engedélyezett. Ellenőrizd a kulcsot és a provider beállításait. Ha a kulcs jó, érdemes másik modellt próbálni.";
+    }
+    if (lower.includes("rate limit") || lower.includes("429") || lower.includes("too many requests")) {
+        return "A szolgáltató túl sok kérés miatt ideiglenesen elutasította a fordítást. Kérlek várj egy kicsit, vagy próbálj ki egy stabilabb, olcsóbb modellt.";
+    }
+    if (lower.includes("json") || lower.includes("malformed") || lower.includes("alignment failed") || lower.includes("escaped character")) {
+        return "A modell nem adta vissza a várt JSON formátumot. Ez általában a modell válaszának formátumából adódik. Javaslat: próbálj ki egy stabilabb modellt, például OpenAI gpt-4o-mini vagy Gemini 2.5 flash-lite.";
+    }
+    if (lower.includes("http 400") || lower.includes("unsupported") || lower.includes("temperature") || lower.includes("max_tokens") || lower.includes("max_completion_tokens")) {
+        return "A modell nem tudja használni az aktuális paramétereket. Javaslat: válassz egy kompatibilisebb modellt.";
+    }
+    return "A fordítási modell nem tudott értelmes subtitle JSON-t adni vissza. Javaslat: próbálj ki egy másik modellt.";
+}
+
+async function fetchAIBatchTranslation(cues, settings, contextLines = []) {
+    const linesArray = cues.map(c => c.text);
     return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ 
-            action: "translate_batch", 
-            lines: linesArray, 
-            settings: settings 
+        chrome.runtime.sendMessage({
+            action: "translate_batch",
+            lines: linesArray,
+            contextLines,
+            settings: settings
         }, (response) => {
             if (chrome.runtime.lastError) {
                 consecutiveErrors++;
@@ -259,13 +289,14 @@ async function fetchAIBatchTranslation(linesArray, settings) {
             if (response && response.success) {
                 consecutiveErrors = 0;
                 response.data.forEach((translated, index) => {
-                    translationCache[linesArray[index]] = translated;
+                    const cue = cues[index];
+                    if (cue) translationByCue[cue.index] = translated;
                 });
                 resolve(response.data);
             } else {
                 consecutiveErrors++;
-                const errDetail = (response && response.error) ? String(response.error).slice(0, 120) : "";
-                showToast((chrome.i18n.getMessage("toast_api_error") || "API error: ") + errDetail, true);
+                const errDetail = (response && response.error) ? String(response.error) : "";
+                showToast(describeTranslationFailure(errDetail), true);
                 resolve(linesArray.map(() => chrome.i18n.getMessage("toast_translation_missing")));
             }
         });
@@ -274,7 +305,8 @@ async function fetchAIBatchTranslation(linesArray, settings) {
 
 // ✨ 流式通道：打开长连接到 background，实时接收逐行(partial)与最终(done)翻译
 // onPartial(translationsMap) / onDone(data, success, error)
-function openTranslationStream(linesArray, settings, callbacks) {
+function openTranslationStream(cues, settings, callbacks, contextLines = []) {
+    const linesArray = cues.map(c => c.text);
     const { onPartial, onDone } = callbacks;
     const port = chrome.runtime.connect({ name: 'translate_stream' });
     let settled = false;
@@ -293,7 +325,7 @@ function openTranslationStream(linesArray, settings, callbacks) {
         }
     });
     port.onDisconnect.addListener(() => finish(null, false, "stream disconnected"));
-    port.postMessage({ action: 'translate_stream', lines: linesArray, settings });
+    port.postMessage({ action: 'translate_stream', lines: linesArray, contextLines, settings });
     return port;
 }
 
@@ -316,7 +348,7 @@ function parseVTT(vttText) {
                 if (cleanLine) text += (text ? '\n' : '') + cleanLine;
                 i++;
             }
-            if (text) result.push({ start, end, text });
+            if (text) result.push({ start, end, text, index: result.length });
         } else i++;
     }
     return result;
@@ -332,7 +364,7 @@ function parseASS(assText) {
         if (!line.startsWith('Dialogue:')) continue;
         const parts = line.split(','); if (parts.length < 10) continue;
         const cleanText = parts.slice(9).join(',').replace(/\{[^}]+\}/g, '').replace(/\\N/g, '\n').trim();
-        if (cleanText) result.push({ start: timeToSeconds(parts[1]), end: timeToSeconds(parts[2]), text: cleanText });
+        if (cleanText) result.push({ start: timeToSeconds(parts[1]), end: timeToSeconds(parts[2]), text: cleanText, index: result.length });
     }
     return result;
 }
@@ -498,89 +530,102 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
 
     if (video._dualSubListener) video.removeEventListener('timeupdate', video._dualSubListener);
 
+    // Ensure every cue has a stable index (also for older parsed payloads)
+    parsedSubs.forEach((sub, i) => {
+        if (typeof sub.index !== "number") sub.index = i;
+    });
+
     // ✨ 实时流式开关：仅 custom_llm 引擎支持逐字流式
     const streamingEnabled = useAI && settings.streaming && settings.transEngine === 'custom_llm';
-    const streamingCache = {}; // source line -> 进行中的部分译文（实时显示用）
 
     let currentDisplayedSourceText = "";
-    let currentActiveLines = []; // 当前正在显示的字幕行（保留行内 \n，用于缓存 key 匹配）
+    let currentActiveCues = []; // active subtitle cues (index + text)
 
-    const inFlight = new Set();
-    const BATCH_SIZE = settings.batchSize || 10;
-    const MAX_CONCURRENCY = settings.concurrency || 3;
+    const inFlight = new Set(); // cue indexes
+    const BATCH_SIZE = settings.batchSize || 15;
+    const MAX_CONCURRENCY = settings.concurrency || 2;
     let isPreloading = false;
 
+    const escapeHtml = (s) => String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const contextBeforeCue = (cueIndex) => {
+        const start = Math.max(0, cueIndex - CONTEXT_LINES);
+        return parsedSubs.slice(start, cueIndex).map(s => s.text);
+    };
+
     // ✨ 渲染当前正在显示的字幕行：优先用最终译文，其次用流式中的部分译文，未开始则显示省略号占位
-    // 译文内部的真实换行(\n)转为 <br>，保证多行字幕正确换行
     const renderActive = () => {
         if (!currentDisplayedSourceText) {
             textElement.style.setProperty('display', 'none', 'important');
             textElement.innerHTML = '';
             return;
         }
-        const lines = currentActiveLines;
-        // 译文内部换行 -> <br>：同时处理真正的换行符(0x0A) 与流式过程中模型打出的字面 "\n" 两字符
-        const fmt = (t) => t.replace(/\n/g, '<br>').replace(/\\n/g, '<br>');
-        const parts = lines.map(line => {
-            if (translationCache[line]) return fmt(translationCache[line]);
-            const sp = streamingCache[line];
-            if (sp != null) return fmt(sp) + '▌'; // 仍在生成中，加光标提示
+        const cues = currentActiveCues;
+        const fmt = (t) => escapeHtml(t).replace(/\n/g, '<br>').replace(/\\n/g, '<br>');
+        const parts = cues.map(cue => {
+            if (translationByCue[cue.index]) return fmt(translationByCue[cue.index]);
+            const sp = streamingByCue[cue.index];
+            if (sp != null) return fmt(sp) + '▌';
             return `<span style="color:#888;font-size:16px;">…</span>`;
         });
         textElement.innerHTML = parts.join('<br>');
         textElement.style.setProperty('display', 'inline-block', 'important');
     };
 
-    // ✨ 统一的批次请求：流式模式走 Port 实时回传；非流式/Google 走原批量逻辑
+    // chunk = array of { index, text }
     function requestBatch(chunk) {
-        chunk.forEach(t => inFlight.add(t));
+        chunk.forEach(c => inFlight.add(c.index));
+        const contextLines = chunk.length ? contextBeforeCue(chunk[0].index) : [];
 
         if (streamingEnabled) {
             return new Promise((resolve) => {
                 openTranslationStream(chunk, settings, {
                     onPartial: (tr) => {
-                        const activeLines = currentActiveLines;
+                        const activeIndexes = currentActiveCues.map(c => c.index);
                         let hitsActive = false;
                         Object.keys(tr).forEach(k => {
-                            const line = chunk[Number(k)];
-                            if (line != null) {
-                                streamingCache[line] = tr[k];
-                                if (activeLines.includes(line)) hitsActive = true;
+                            const cue = chunk[Number(k)];
+                            if (cue) {
+                                streamingByCue[cue.index] = tr[k];
+                                if (activeIndexes.includes(cue.index)) hitsActive = true;
                             }
                         });
                         if (hitsActive) renderActive();
                     },
                     onDone: (data, success, error) => {
-                        chunk.forEach(t => inFlight.delete(t));
+                        chunk.forEach(c => inFlight.delete(c.index));
                         if (success && data) {
                             consecutiveErrors = 0;
                             data.forEach((t, i) => {
-                                const line = chunk[i];
-                                if (line != null) { translationCache[line] = t; delete streamingCache[line]; }
+                                const cue = chunk[i];
+                                if (cue) {
+                                    translationByCue[cue.index] = t;
+                                    delete streamingByCue[cue.index];
+                                }
                             });
                         } else {
                             consecutiveErrors++;
                             const errDetail = error ? String(error).slice(0, 120) : "";
                             showToast((chrome.i18n.getMessage("toast_api_error") || "API error: ") + errDetail, true);
-                            chunk.forEach(t => delete streamingCache[t]);
+                            chunk.forEach(c => delete streamingByCue[c.index]);
                         }
                         if (currentDisplayedSourceText) renderActive();
                         resolve(data);
                     }
-                });
+                }, contextLines);
             });
         }
 
-        return fetchAIBatchTranslation(chunk, settings).then(data => {
-            data.forEach((t, i) => {
-                const line = chunk[i];
-                if (line != null) translationCache[line] = t;
-            });
-            chunk.forEach(t => inFlight.delete(t));
+        return fetchAIBatchTranslation(chunk, settings, contextLines).then(data => {
+            chunk.forEach(c => inFlight.delete(c.index));
             if (currentDisplayedSourceText) renderActive();
             return data;
         }).catch(() => {
-            chunk.forEach(t => inFlight.delete(t));
+            chunk.forEach(c => inFlight.delete(c.index));
         });
     }
 
@@ -596,22 +641,20 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
             const currentIndex = parsedSubs.findIndex(sub => sub.end >= actualTime);
             if (currentIndex === -1) break;
 
-            const futureSubs = parsedSubs.slice(currentIndex);
-            const uncachedLines =[...new Set(
-                futureSubs.map(s => s.text).filter(t => t && !translationCache[t] && !inFlight.has(t))
-            )];
+            const horizon = actualTime + PRELOAD_AHEAD_SEC;
+            const futureSubs = parsedSubs
+                .slice(currentIndex)
+                .filter(s => s.start <= horizon && s.text && translationByCue[s.index] == null && !inFlight.has(s.index));
 
-            if (uncachedLines.length === 0) break;
+            if (futureSubs.length === 0) break;
 
-            const targetLines = uncachedLines.slice(0, BATCH_SIZE * MAX_CONCURRENCY);
-            const chunks =[];
-            for (let i = 0; i < targetLines.length; i += BATCH_SIZE) {
-                chunks.push(targetLines.slice(i, i + BATCH_SIZE));
+            const targetCues = futureSubs.slice(0, BATCH_SIZE * MAX_CONCURRENCY);
+            const chunks = [];
+            for (let i = 0; i < targetCues.length; i += BATCH_SIZE) {
+                chunks.push(targetCues.slice(i, i + BATCH_SIZE));
             }
 
-            // 流式模式下预载不阻塞渲染：直接 fire，逐字结果会经 onPartial 实时上屏
             const promises = chunks.map(chunk => requestBatch(chunk));
-
             await Promise.all(promises);
             await new Promise(r => setTimeout(r, 1000));
         }
@@ -628,16 +671,15 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
         const activeSubs = parsedSubs.filter(sub => currentTime >= sub.start && currentTime <= sub.end);
 
         if (activeSubs.length > 0) {
-            const lines = activeSubs.map(s => s.text);
-            const combinedSourceText = lines.join('\n');
+            const cueKey = activeSubs.map(s => s.index).join(",");
+            const combinedSourceText = activeSubs.map(s => s.text).join('\n');
 
-            if (currentDisplayedSourceText !== combinedSourceText) {
-                currentDisplayedSourceText = combinedSourceText;
-                currentActiveLines = lines;
-                renderActive(); // 立即反映当前已有译文 / 部分译文 / 占位
+            if (currentDisplayedSourceText !== combinedSourceText + "#" + cueKey) {
+                currentDisplayedSourceText = combinedSourceText + "#" + cueKey;
+                currentActiveCues = activeSubs.map(s => ({ index: s.index, text: s.text }));
+                renderActive();
 
-                // 触发尚未就绪的行的翻译（流式模式下会逐字上屏）
-                const needTranslation = lines.filter(l => !translationCache[l] && !inFlight.has(l));
+                const needTranslation = currentActiveCues.filter(c => translationByCue[c.index] == null && !inFlight.has(c.index));
                 if (useAI && needTranslation.length > 0) {
                     requestBatch(needTranslation);
                 }
@@ -645,7 +687,7 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
         } else {
             if (currentDisplayedSourceText !== "") {
                 currentDisplayedSourceText = "";
-                currentActiveLines = [];
+                currentActiveCues = [];
                 textElement.style.setProperty('display', 'none', 'important');
                 textElement.innerHTML = '';
             }

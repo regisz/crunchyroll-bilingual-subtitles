@@ -15,37 +15,33 @@ function t(key, fallback) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const aiFields = document.getElementById("ai-fields");
     const engineSelect = document.getElementById("engine-select");
-    const providerSelect = document.getElementById("ai-provider");
-    const apiUrlWrap = document.getElementById("api-url-wrap");
-    const apiUrlInput = document.getElementById("api-url");
-    const apiKeyInput = document.getElementById("api-key");
     const modelSelect = document.getElementById("ai-model-select");
     const modelInput = document.getElementById("ai-model");
     const loadModelsBtn = document.getElementById("load-models-btn");
+    const exportModelsBtn = document.getElementById("export-models-btn");
     const modelsHint = document.getElementById("models-hint");
     const saveBtn = document.getElementById("save-btn");
+    const openOptionsBtn = document.getElementById("open-options-btn");
+    const openDebugBtn = document.getElementById("open-debug-btn");
     const statusEl = document.getElementById("save-status");
+
+    let currentLoadedModels = [];
+    let currentProvider = "openai";
+    let currentApiKey = "";
+    let currentApiUrl = "";
+    let preferredModel = "";
+    let loadSeq = 0;
+    let savedSettings = {};
 
     document.getElementById("title").textContent = t("popup_title");
     document.getElementById("label-lang").textContent = t("target_language");
     document.getElementById("label-mode").textContent = t("translation_mode");
     document.getElementById("label-engine").textContent = t("translation_engine");
-    document.getElementById("label-provider").textContent = t("provider_label", "AI Provider");
-    document.getElementById("label-api-url").textContent = t("api_url_label");
     document.getElementById("label-model").textContent = t("model_label");
-    document.getElementById("label-api-key").textContent = t("api_key_label");
-    document.getElementById("label-effort").textContent = t("reasoning_effort_label");
-    document.getElementById("label-streaming").textContent = t("streaming_label");
-    document.getElementById("label-batch").textContent = t("batch_size_label");
-    document.getElementById("label-concurrency").textContent = t("concurrency_label");
     loadModelsBtn.textContent = t("load_models_button", "Load models");
     saveBtn.textContent = t("save_button");
-
-    apiUrlInput.placeholder = t("api_url_placeholder");
     modelInput.placeholder = t("model_placeholder");
-    apiKeyInput.placeholder = t("api_key_placeholder");
 
     const langSelect = document.getElementById("lang-select");
     const modeSelect = document.getElementById("mode-select");
@@ -62,48 +58,23 @@ document.addEventListener("DOMContentLoaded", () => {
         const msg = chrome.i18n.getMessage("engine_" + opt.value.replace("_llm", ""));
         if (msg) opt.textContent = msg;
     });
-    Array.from(providerSelect.options).forEach(opt => {
-        const msg = chrome.i18n.getMessage("provider_" + opt.value);
-        if (msg) opt.textContent = msg;
-    });
-
-    let preferredModel = "";
-    let loadSeq = 0;
-    let keyDebounce = null;
 
     const setHint = (msg, type = "") => {
         modelsHint.textContent = msg || "";
         modelsHint.className = "hint" + (type ? " " + type : "");
     };
 
-    const updateCustomVisibility = () => {
-        apiUrlWrap.style.display = providerSelect.value === "custom" ? "block" : "none";
+    const updateVisibility = () => {
+        const isCustom = engineSelect.value === "custom_llm";
+        modelSelect.disabled = !isCustom;
+        loadModelsBtn.disabled = !isCustom;
         modelInput.style.display = modelSelect.value === MANUAL_MODEL_VALUE ? "block" : "none";
     };
 
-    const updateVisibility = () => {
-        aiFields.style.display = engineSelect.value === "custom_llm" ? "block" : "none";
-        updateCustomVisibility();
-    };
-
-    const applyProviderPreset = (provider, forceUrl = false) => {
-        const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.custom;
-        if (provider === "custom") {
-            updateCustomVisibility();
-            return;
-        }
-        if (forceUrl || !apiUrlInput.value.trim()) apiUrlInput.value = preset.apiUrl;
-        if (!preferredModel) preferredModel = preset.aiModel;
-        updateCustomVisibility();
-    };
-
-    const ensurePresetApiUrl = (provider) => {
-        const preset = PROVIDER_PRESETS[provider];
-        if (preset && preset.apiUrl) apiUrlInput.value = preset.apiUrl;
-    };
-
     const fillModelSelect = (models, selectedId) => {
+        currentLoadedModels = Array.isArray(models) ? models.map(m => ({ id: m.id, name: m.name || m.id })) : [];
         modelSelect.innerHTML = "";
+
         const placeholder = document.createElement("option");
         placeholder.value = "";
         placeholder.textContent = t("model_select_placeholder", "Select a model…");
@@ -142,56 +113,113 @@ document.addEventListener("DOMContentLoaded", () => {
             modelInput.value = modelSelect.value;
         }
 
-        updateCustomVisibility();
+        updateVisibility();
     };
 
-    const seedFallbackModels = (hintMsg, hintType) => {
-        const preset = PROVIDER_PRESETS[providerSelect.value] || PROVIDER_PRESETS.custom;
-        let models = fallbackModelList(providerSelect.value);
-        const selected = preferredModel || preset.aiModel || "";
-        if (selected && !models.some(m => m.id === selected)) {
-            models = [{ id: selected, name: selected }, ...models];
-        }
-        fillModelSelect(models, selected);
+    const clearModelList = (hintMsg, hintType) => {
+        currentLoadedModels = [];
+        modelSelect.innerHTML = "";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = t("model_select_placeholder", "Select a model…");
+        modelSelect.appendChild(placeholder);
+        modelInput.value = "";
+        updateVisibility();
         if (hintMsg) setHint(hintMsg, hintType || "");
     };
 
+    const exportLoadedModels = () => {
+        const selectedModel = resolveSelectedModel();
+        const payload = {
+            exportedAt: new Date().toISOString(),
+            selectedModel,
+            providers: {
+                [currentProvider]: currentLoadedModels.map(item => item.id || item.name)
+            }
+        };
+
+        if (!currentLoadedModels.length) {
+            showStatus("No models are loaded yet.", "error");
+            return;
+        }
+
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        link.download = `ai-model-list-${timestamp}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showStatus("Model list exported as JSON.", "success");
+    };
+
     const loadModels = async () => {
-        const provider = providerSelect.value;
-        const apiKey = apiKeyInput.value.trim();
-        const apiUrl = apiUrlInput.value.trim();
+        const provider = currentProvider;
+        const apiKey = currentApiKey;
+        const apiUrl = currentApiUrl;
 
         if (provider !== "openrouter" && !apiKey) {
-            seedFallbackModels(t("models_need_api_key", "Enter API key to load models"), "error");
+            clearModelList("Open full settings and add the API key for this provider.", "error");
             return;
         }
         if (provider === "custom" && !apiUrl) {
-            seedFallbackModels(t("models_need_api_url", "Enter API URL to load models"), "error");
+            clearModelList("Open full settings and add the custom API URL.", "error");
             return;
         }
 
         const seq = ++loadSeq;
         loadModelsBtn.disabled = true;
-        setHint(t("models_loading", "Loading models…"));
+        setHint("Loading models…");
 
         try {
-            // Fetch directly from popup (host_permissions) — more reliable than SW messaging
             const models = await listProviderModels(provider, apiKey, apiUrl);
             if (seq !== loadSeq) return;
 
             if (!models.length) {
-                seedFallbackModels(t("models_empty", "No chat models found"), "error");
+                chrome.storage.local.set({
+                    lastDebugCatalog: {
+                        source: "popup_load",
+                        provider,
+                        models: [],
+                        totalCount: 0,
+                        error: "API responded but returned 0 usable chat models",
+                        loadedAt: new Date().toISOString()
+                    }
+                });
+                clearModelList("No chat models found for this provider.", "error");
                 return;
             }
-            fillModelSelect(models, preferredModel || modelInput.value);
-            setHint(t("models_loaded", "Loaded {count} models").replace("{count}", String(models.length)), "ok");
+
+            const recommended = preferredModel && models.some(m => m.id === preferredModel)
+                ? preferredModel
+                : pickBestAvailableModel(provider, models);
+            preferredModel = recommended;
+            fillModelSelect(models, recommended);
+            chrome.storage.local.set({
+                lastDebugCatalog: {
+                    source: "popup_load",
+                    provider,
+                    models: models.slice(0, 20).map(m => m.id || m.name),
+                    totalCount: models.length,
+                    loadedAt: new Date().toISOString()
+                }
+            });
+            setHint(`Loaded ${models.length} models`, "ok");
         } catch (e) {
             if (seq !== loadSeq) return;
             console.warn("[CR Dual Subs] Model list failed:", e);
-            seedFallbackModels(
-                t("models_load_failed", "Failed to load models") + ": " + e.message,
-                "error"
-            );
+            chrome.storage.local.set({
+                lastDebugCatalog: {
+                    source: "popup_load",
+                    provider,
+                    models: [],
+                    totalCount: 0,
+                    error: e && e.message ? e.message : String(e),
+                    loadedAt: new Date().toISOString()
+                }
+            });
+            clearModelList("Failed to load models: " + (e && e.message ? e.message : String(e)), "error");
         } finally {
             if (seq === loadSeq) loadModelsBtn.disabled = false;
         }
@@ -212,46 +240,32 @@ document.addEventListener("DOMContentLoaded", () => {
         apiUrl: PROVIDER_PRESETS.openai.apiUrl,
         aiModel: PROVIDER_PRESETS.openai.aiModel,
         apiKey: "",
-        batchSize: 10,
-        concurrency: 3,
+        providerApiKeys: {},
+        batchSize: 15,
+        concurrency: 2,
         reasoningEnabled: false,
         streaming: true
     }, (s) => {
-        langSelect.value = s.secondLang || "hu-HU";
-        modeSelect.value = s.transMode || "fallback";
-        engineSelect.value = s.transEngine || "custom_llm";
-        apiUrlInput.value = s.apiUrl || "";
+        savedSettings = s;
+        currentProvider = s.aiProvider || detectProvider(s.apiUrl, s.aiModel);
+        currentApiKey = (s.providerApiKeys && s.providerApiKeys[currentProvider]) || s.apiKey || "";
+        currentApiUrl = s.apiUrl || (PROVIDER_PRESETS[currentProvider] || {}).apiUrl || "";
         preferredModel = s.aiModel || "";
-        modelInput.value = s.aiModel || "";
-        apiKeyInput.value = s.apiKey || "";
-        document.getElementById("batch-size").value = s.batchSize || 10;
-        document.getElementById("concurrency").value = s.concurrency || 3;
-        document.getElementById("reasoning-toggle").checked = s.reasoningEnabled === true;
-        document.getElementById("streaming-toggle").checked = s.streaming !== false;
+        modelInput.value = preferredModel;
 
-        const provider = s.aiProvider || detectProvider(s.apiUrl, s.aiModel);
-        providerSelect.value = PROVIDER_PRESETS[provider] ? provider : "custom";
-        if (providerSelect.value !== "custom") {
-            applyProviderPreset(providerSelect.value, !apiUrlInput.value.trim());
-        }
-        seedFallbackModels();
+        clearModelList();
         updateVisibility();
 
-        if (engineSelect.value === "custom_llm" && (apiKeyInput.value.trim() || providerSelect.value === "openrouter")) {
-            loadModels();
-        } else if (engineSelect.value === "custom_llm") {
-            setHint(t("models_need_api_key", "Enter API key to load models"));
+        if (engineSelect.value === "custom_llm") {
+            if (currentApiKey || currentProvider === "openrouter" || (currentProvider === "custom" && currentApiUrl)) {
+                loadModels();
+            } else {
+                setHint("Open full settings to add the API key for this provider.", "error");
+            }
         }
     });
 
     engineSelect.addEventListener("change", updateVisibility);
-    providerSelect.addEventListener("change", () => {
-        preferredModel = (PROVIDER_PRESETS[providerSelect.value] || {}).aiModel || "";
-        applyProviderPreset(providerSelect.value, true);
-        seedFallbackModels();
-        if (apiKeyInput.value.trim() || providerSelect.value === "openrouter") loadModels();
-        else setHint(t("models_need_api_key", "Enter API key to load models"));
-    });
     modelSelect.addEventListener("change", () => {
         if (modelSelect.value === MANUAL_MODEL_VALUE) {
             modelInput.style.display = "block";
@@ -260,45 +274,43 @@ document.addEventListener("DOMContentLoaded", () => {
             modelInput.value = modelSelect.value;
             preferredModel = modelSelect.value;
         }
-        updateCustomVisibility();
+        updateVisibility();
     });
     loadModelsBtn.addEventListener("click", loadModels);
-    apiKeyInput.addEventListener("input", () => {
-        clearTimeout(keyDebounce);
-        keyDebounce = setTimeout(() => {
-            if (apiKeyInput.value.trim().length > 10) loadModels();
-        }, 500);
-    });
-    apiKeyInput.addEventListener("change", () => {
-        if (apiKeyInput.value.trim()) loadModels();
-    });
+    exportModelsBtn.addEventListener("click", exportLoadedModels);
+
+    if (openOptionsBtn) {
+        openOptionsBtn.addEventListener("click", () => {
+            if (chrome.runtime.openOptionsPage) {
+                chrome.runtime.openOptionsPage();
+            } else {
+                chrome.tabs.create({ url: "options.html" });
+            }
+        });
+    }
+    if (openDebugBtn) {
+        openDebugBtn.addEventListener("click", () => {
+            chrome.tabs.create({ url: chrome.runtime.getURL("debug.html") });
+        });
+    }
 
     saveBtn.addEventListener("click", () => {
-        const provider = providerSelect.value;
-        if (provider !== "custom") ensurePresetApiUrl(provider);
-
         const aiModel = resolveSelectedModel();
         if (engineSelect.value === "custom_llm" && !aiModel) {
             showStatus(t("models_need_model", "Please select a model"), "error");
             return;
         }
-        if (engineSelect.value === "custom_llm" && provider !== "openrouter" && provider !== "custom" && !apiKeyInput.value.trim()) {
-            showStatus(t("models_need_api_key", "Enter API key to load models"), "error");
-            return;
-        }
+
+        const providerApiKeys = { ...(savedSettings.providerApiKeys || {}) };
+        providerApiKeys[currentProvider] = currentApiKey;
 
         const settings = {
-            secondLang: langSelect.value,
-            transMode: modeSelect.value,
-            transEngine: engineSelect.value,
-            aiProvider: provider,
-            apiUrl: apiUrlInput.value.trim(),
+            ...savedSettings,
+            aiProvider: currentProvider,
+            apiUrl: currentApiUrl,
             aiModel,
-            apiKey: apiKeyInput.value.trim(),
-            batchSize: parseInt(document.getElementById("batch-size").value) || 10,
-            concurrency: parseInt(document.getElementById("concurrency").value) || 3,
-            reasoningEnabled: document.getElementById("reasoning-toggle").checked,
-            streaming: document.getElementById("streaming-toggle").checked
+            apiKey: currentApiKey,
+            providerApiKeys
         };
 
         saveBtn.disabled = true;

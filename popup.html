@@ -8,7 +8,6 @@
     .item { margin-bottom: 12px; }
     label { display: block; font-size: 12px; color: #aaa; margin-bottom: 4px; }
     select, input { width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: white; border-radius: 4px; box-sizing: border-box; }
-    .ai-config { background: #1c1d22; padding: 10px; border-radius: 4px; margin-top: 10px; border: 1px dashed #444; }
     .row { display: flex; gap: 10px; }
     .row .item { flex: 1; }
     .key-row { display: flex; gap: 8px; align-items: flex-end; }
@@ -19,6 +18,11 @@
     }
     .btn-secondary:hover { background: #444; }
     .btn-secondary:disabled { background: #2a2a2a; color: #777; }
+    .btn-export {
+      display: inline-block; width: auto; padding: 8px 10px; background: #213a52; border: 1px solid #4a7bb5; color: #dceeff; font-weight: 600; font-size: 12px; cursor: pointer; border-radius: 4px;
+    }
+    .btn-export:hover { background: #2a4c72; }
+    .btn-export:disabled { background: #2a2a2a; color: #777; border-color: #444; cursor: not-allowed; }
     .hint { font-size: 11px; color: #888; margin-top: 4px; min-height: 14px; }
     .hint.error { color: #FF6B6B; }
     .hint.ok { color: #7dcea0; }
@@ -28,16 +32,6 @@
     .status { display: none; margin-top: 10px; padding: 8px; border-radius: 4px; font-size: 12px; text-align: center; }
     .status.success { background: #1a3a1a; color: #55FF55; border: 1px solid #55FF55; }
     .status.error { background: #3a1a1a; color: #FF6B6B; border: 1px solid #FF6B6B; }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
-    .toggle-label { margin: 0; font-size: 13px; }
-    .toggle-label.hl { color: #f47521; }
-    .toggle-group { border: 1px dashed #555; border-radius: 6px; padding: 10px 12px; margin-top: 10px; }
-    .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; inset: 0; background: #555; transition: .2s; border-radius: 24px; }
-    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; transition: .2s; border-radius: 50%; }
-    .switch input:checked + .slider { background: #f47521; }
-    .switch input:checked + .slider:before { transform: translateX(18px); }
   </style>
 </head>
 <body>
@@ -84,71 +78,25 @@
     </select>
   </div>
 
-  <div id="ai-fields" class="ai-config" style="display:none;">
-    <div class="item">
-      <label id="label-provider"></label>
-      <select id="ai-provider">
-        <option value="openai">OpenAI (GPT)</option>
-        <option value="gemini">Google Gemini</option>
-        <option value="claude">Anthropic Claude</option>
-        <option value="openrouter">OpenRouter</option>
-        <option value="custom">Custom</option>
-      </select>
-    </div>
-
-    <div class="item" id="api-url-wrap">
-      <label id="label-api-url"></label>
-      <input type="text" id="api-url" placeholder="">
-    </div>
-
-    <div class="item">
-      <label id="label-api-key"></label>
-      <div class="key-row">
-        <div class="item">
-          <input type="password" id="api-key" placeholder="">
-        </div>
-        <button type="button" id="load-models-btn" class="btn-secondary"></button>
+  <div class="item">
+    <label id="label-model"></label>
+    <div class="key-row">
+      <div class="item" style="margin-bottom: 0;">
+        <select id="ai-model-select"></select>
       </div>
-      <div id="models-hint" class="hint"></div>
+      <button type="button" id="export-models-btn" class="btn-export">Export model list</button>
     </div>
+    <input type="text" id="ai-model" placeholder="" style="display:none; margin-top:6px;">
+    <div id="models-hint" class="hint"></div>
+  </div>
 
-    <div class="item">
-      <label id="label-model"></label>
-      <select id="ai-model-select"></select>
-      <input type="text" id="ai-model" placeholder="" style="display:none; margin-top:6px;">
-    </div>
-
-    <div class="toggle-group">
-        <div class="item toggle-row">
-            <label for="reasoning-toggle" id="label-effort" class="toggle-label hl"></label>
-            <label class="switch">
-                <input type="checkbox" id="reasoning-toggle">
-                <span class="slider"></span>
-            </label>
-        </div>
-
-        <div class="item toggle-row">
-            <label for="streaming-toggle" id="label-streaming" class="toggle-label"></label>
-            <label class="switch">
-                <input type="checkbox" id="streaming-toggle">
-                <span class="slider"></span>
-            </label>
-        </div>
-    </div>
-
-    <div class="row" style="margin-top: 5px;">
-        <div class="item">
-            <label id="label-batch"></label>
-            <input type="number" id="batch-size" min="1" max="50" value="10">
-        </div>
-        <div class="item">
-            <label id="label-concurrency"></label>
-            <input type="number" id="concurrency" min="1" max="10" value="3">
-        </div>
-    </div>
+  <div class="item">
+    <button type="button" id="load-models-btn" class="btn-secondary" style="width: 100%;"></button>
   </div>
 
   <button id="save-btn"></button>
+  <button id="open-options-btn" type="button" style="width: 100%; margin-top: 10px; padding: 9px; background: #2a3d4f; border: 1px solid #4a7bb5; color: #dfeeff; border-radius: 4px; cursor: pointer;">Open full settings</button>
+  <button id="open-debug-btn" type="button" style="width: 100%; margin-top: 8px; padding: 9px; background: #3d2d1a; border: 1px solid #8d5b2a; color: #f4d7b1; border-radius: 4px; cursor: pointer;">Open debug</button>
   <script src="models-api.js"></script>
   <script src="popup.js"></script>
 </body>

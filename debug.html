@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Crunchyroll Bilingual Subtitles Debug</title>
+  <style>
+    :root {
+      --bg: #121417;
+      --panel: #1b1d22;
+      --border: #333844;
+      --text: #edf2f7;
+      --muted: #aab7c5;
+      --accent: #f47521;
+      --success: #7dcea0;
+      --error: #ff7a7a;
+      --warn: #ffbf69;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+    }
+    .page {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      margin: 0 0 18px;
+      color: var(--accent);
+      font-size: 28px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .box {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .value {
+      font-size: 15px;
+      word-break: break-word;
+      min-height: 20px;
+    }
+    .status {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+    .status.success { background: rgba(125,206,160,0.14); color: var(--success); }
+    .status.error { background: rgba(255,122,122,0.14); color: var(--error); }
+    .status.warn { background: rgba(255,191,105,0.14); color: var(--warn); }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Debug</h1>
+
+    <div class="panel">
+      <div class="grid">
+        <div class="box">
+          <span class="label">Provider</span>
+          <div id="debug-provider" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label">Model</span>
+          <div id="debug-model" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label">API URL</span>
+          <div id="debug-api-url" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label">API key</span>
+          <div id="debug-api-key" class="value">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="label">Root cause</div>
+      <pre id="debug-root-cause">No request recorded yet.</pre>
+    </div>
+
+    <div class="panel">
+      <div class="label">Latest request</div>
+      <div id="debug-request-status" class="status warn">Waiting…</div>
+      <div style="margin-top: 12px;">
+        <pre id="debug-request-details">No request recorded yet.</pre>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="label">Latest model catalog</div>
+      <pre id="debug-catalog">No catalog loaded yet.</pre>
+    </div>
+
+    <div id="debug-warning" class="panel" style="display:none; border-color: #8d5b2a; background: rgba(141,91,42,0.12); color: #f4d7b1;">
+      This debug page must be opened from the extension UI. Open it from the popup or settings page to see runtime data.
+    </div>
+
+    <button id="refresh-btn" type="button">Refresh</button>
+  </div>
+
+  <script src="debug.js"></script>
+</body>
+</html>

@@ -210,7 +210,7 @@
         "message": "Magyar (hu-HU)"
     },
     "provider_label": {
-        "message": "AI szolgáltató"
+        "message": "AI kiszolgáló"
     },
     "provider_openai": {
         "message": "OpenAI GPT"

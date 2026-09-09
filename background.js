@@ -4,12 +4,48 @@
 
 importScripts("models-api.js");
 
+function writeDebugLog(entry) {
+    chrome.storage.local.set({ lastDebugRequest: entry });
+}
+
+function writeDebugCatalog(entry) {
+    chrome.storage.local.set({ lastDebugCatalog: entry });
+}
+
+function debugMetaFromSettings(settings = {}) {
+    return {
+        provider: settings.aiProvider || null,
+        model: settings.aiModel || null,
+        apiUrl: settings.apiUrl || null,
+        engine: settings.transEngine || null
+    };
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "translate_batch") {
-        handleBatchTranslation(request.lines, request.settings)
-            .then(res => sendResponse({ success: true, data: res }))
+        handleBatchTranslation(request.lines, request.settings, request.contextLines || [])
+            .then(res => {
+                writeDebugLog({
+                    type: "translate_batch",
+                    success: true,
+                    ...debugMetaFromSettings(request.settings),
+                    at: new Date().toISOString(),
+                    resultCount: Array.isArray(res) ? res.length : 0,
+                    lineCount: Array.isArray(request.lines) ? request.lines.length : 0,
+                    contextCount: Array.isArray(request.contextLines) ? request.contextLines.length : 0
+                });
+                sendResponse({ success: true, data: res });
+            })
             .catch(err => {
                 console.error("[CR Bilingual Subtitles] Batch translation failed:", err);
+                writeDebugLog({
+                    type: "translate_batch",
+                    success: false,
+                    ...debugMetaFromSettings(request.settings),
+                    at: new Date().toISOString(),
+                    error: err.message,
+                    lineCount: Array.isArray(request.lines) ? request.lines.length : 0
+                });
                 sendResponse({ success: false, error: err.message });
             });
         return true;
@@ -17,12 +53,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.action === "list_models") {
         listProviderModels(request.provider, request.apiKey, request.apiUrl)
-            .then(models => sendResponse({ success: true, models }))
+            .then(models => {
+                writeDebugCatalog({
+                    provider: request.provider,
+                    models: models.slice(0, 20),
+                    totalCount: models.length,
+                    loadedAt: new Date().toISOString()
+                });
+                sendResponse({ success: true, models });
+            })
             .catch(err => {
                 console.error("[CR Bilingual Subtitles] Model list failed:", err);
+                writeDebugCatalog({
+                    provider: request.provider,
+                    models: [],
+                    totalCount: 0,
+                    error: err.message,
+                    loadedAt: new Date().toISOString()
+                });
                 sendResponse({ success: false, error: err.message });
             });
         return true;
+    }
+
+    if (request.action === "debug_catalog") {
+        writeDebugCatalog(request.catalog || {});
+        sendResponse({ success: true });
+        return false;
     }
 });
 
@@ -31,10 +88,19 @@ chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== 'translate_stream') return;
     port.onMessage.addListener(async (msg) => {
         if (msg && msg.action === 'translate_stream') {
+            const settings = msg.settings || {};
             try {
-                await handleStreamTranslation(msg.lines, msg.settings, port);
+                await handleStreamTranslation(msg.lines, settings, port, msg.contextLines || []);
             } catch (e) {
                 console.error("[CR Bilingual Subtitles] Stream translation crashed:", e);
+                writeDebugLog({
+                    type: "translate_stream",
+                    success: false,
+                    ...debugMetaFromSettings(settings),
+                    at: new Date().toISOString(),
+                    error: e.message,
+                    lineCount: Array.isArray(msg.lines) ? msg.lines.length : 0
+                });
                 port.postMessage({ type: 'done', success: false, error: e.message });
             }
         }
@@ -85,65 +151,147 @@ function isGeminiEndpoint(apiUrl) {
     return typeof apiUrl === 'string' && apiUrl.includes('generativelanguage.googleapis.com');
 }
 
+function modelIdLower(aiModel) {
+    return String(aiModel || '').toLowerCase();
+}
+
+/**
+ * Per-family API quirks for subtitle translation.
+ * Not Luna-only: OpenAI gpt-5 family / o-series, Gemini thinking, Claude,
+ * DeepSeek/Qwen/Grok via OpenRouter, etc.
+ */
+function getModelCapabilities(aiModel, apiUrl) {
+    const m = modelIdLower(aiModel);
+    const openAI = isOpenAIEndpoint(apiUrl);
+    const openRouter = isOpenRouterEndpoint(apiUrl);
+    const gemini = isGeminiEndpoint(apiUrl);
+    const anthropic = isAnthropicEndpoint(apiUrl);
+
+    const isOSeries = /(^|\/)o[0-9]/.test(m);
+    const isGpt5Family = m.includes('gpt-5');
+    const isOpenAIReasoning = isOSeries || isGpt5Family;
+    // gpt-5* (incl. luna/nano/sol) usually accept effort "none"; classic o1 often does not
+    const supportsReasoningNone = isGpt5Family || /(^|\/)o3/.test(m) || /(^|\/)o4/.test(m);
+    const isGeminiFamily = m.includes('gemini') || gemini;
+    const isGeminiThinking = isGeminiFamily && /(thinking|2\.5|3\.|flash|pro)/.test(m);
+    const isClaude = m.includes('claude') || anthropic;
+    const isDeepseekReasoner = /deepseek/.test(m) && /(r1|reasoner)/.test(m);
+    const isQwenThinking = /qwen|qwq/.test(m) && /(thinking|qwq|reason)/.test(m);
+    const isGrokReasoning = /grok/.test(m);
+
+    const needsReasoningControl = isOpenAIReasoning || isGeminiThinking || isDeepseekReasoner ||
+        isQwenThinking || isGrokReasoning || (openRouter && (isClaude || isGeminiFamily));
+
+    return {
+        omitTemperature: isOpenAIReasoning || isDeepseekReasoner || isQwenThinking,
+        useMaxCompletionTokens: isOpenAIReasoning || (openAI && isGpt5Family),
+        // Native OpenAI Chat Completions param
+        useOpenAIReasoningEffort: openAI && isOpenAIReasoning,
+        supportsReasoningNone,
+        // OpenRouter unified reasoning object (maps to provider-native thinking)
+        useOpenRouterReasoning: openRouter && needsReasoningControl,
+        // Cheap JSON lock-in where the OpenAI-compatible surface accepts it
+        useJsonObjectFormat: (openAI || gemini || openRouter) && !anthropic,
+        // Subtitle batches are short — avoid burning a 4k completion budget
+        outputTokenBudget: 2048,
+        needsReasoningControl
+    };
+}
+
 function isReasoningStyleModel(aiModel) {
-    const m = (aiModel || '').toLowerCase();
-    // o-series + gpt-5* often reject temperature / classic max_tokens
-    return /(^|\/)o[0-9]/.test(m) || m.includes('gpt-5');
+    return getModelCapabilities(aiModel, '').omitTemperature ||
+        /(^|\/)o[0-9]/.test(modelIdLower(aiModel)) ||
+        modelIdLower(aiModel).includes('gpt-5');
 }
 
 function usesMaxCompletionTokens(aiModel) {
-    const m = (aiModel || '').toLowerCase();
-    return /(^|\/)o[0-9]/.test(m) || m.includes('gpt-5');
+    return getModelCapabilities(aiModel, 'https://api.openai.com/v1/chat/completions').useMaxCompletionTokens;
 }
 
-function buildTranslationPayload(lines, settings, tweaks = {}) {
+function buildTranslationPayload(lines, settings, tweaks = {}, contextLines = []) {
     const { secondLang, aiModel, apiUrl, reasoningEnabled } = settings;
     const reasoningOn = reasoningEnabled === true;
-    const model = aiModel || 'gpt-4o-mini';
+    const model = aiModel || 'gpt-5.6-luna';
     const langName = resolveTargetLanguageName(secondLang);
-    const omitTemperature = tweaks.omitTemperature === true || isReasoningStyleModel(model);
-    const useMaxCompletion = tweaks.useMaxCompletionTokens === true || usesMaxCompletionTokens(model);
+    const caps = getModelCapabilities(model, apiUrl);
+    const omitTemperature = tweaks.omitTemperature === true || caps.omitTemperature;
+    const useMaxCompletion = tweaks.useMaxCompletionTokens === true ||
+        (tweaks.useMaxCompletionTokens !== false && caps.useMaxCompletionTokens);
+    const tokenBudget = Math.max(256, Number(tweaks.outputTokenBudget) || caps.outputTokenBudget);
 
     let effortPrompt = '';
     if (!reasoningOn) {
         effortPrompt = '\n[CRITICAL WARNING]: SKIP ALL REASONING. IMMEDIATELY output the final JSON object.';
     }
 
-    const linesObj = {};
-    lines.forEach((line, index) => { linesObj[index] = line; });
+    const contextObj = {};
+    (contextLines || []).forEach((line, index) => { contextObj[index] = line; });
+    const targetObj = {};
+    lines.forEach((line, index) => { targetObj[index] = line; });
+
+    const hasContext = Array.isArray(contextLines) && contextLines.length > 0;
+    const userPayload = hasContext
+        ? {
+            context_previous_lines: contextObj,
+            translate_these_lines: targetObj,
+            instruction: 'CONTEXT lines are previous dialogue for pronouns/tone only. Translate ONLY translate_these_lines. Return JSON with the same numeric keys as translate_these_lines.'
+        }
+        : targetObj;
+
+    const contextRule = hasContext
+        ? `\n9. The user may include context_previous_lines for dialogue continuity. Do NOT translate those. Output keys must match translate_these_lines only.`
+        : '';
 
     const payload = {
         model,
         messages: [
             {
                 role: 'system',
-                content: `You are an expert anime subtitle translator. Translate each JSON value into natural spoken ${langName} suitable for on-screen anime subtitles (target locale: ${secondLang}).
-CRITICAL RULES:
-1. Output ONLY a valid JSON object matching the exact keys (0, 1, 2...) of the input.
-2. DO NOT merge or split sentences. Keep a strict 1-to-1 mapping for every key.
-3. DO NOT output markdown formatting or \`\`\`json.
-4. NO conversational text before or after the JSON.
-5. Keep lines short and natural for spoken dialogue; match character tone and emotion.
-6. Localize honorifics and cultural references when natural in ${langName}; do not add translator notes.${effortPrompt}`
+                content: `You are an expert anime subtitle translator. Translate each target JSON value into natural spoken ${langName} suitable for on-screen anime subtitles (target locale: ${secondLang}).
+STRICT OUTPUT CONTRACT:
+1. Return ONLY ONE valid JSON object, with no markdown fences, no commentary, and no explanation text.
+2. The JSON root must be an object with exactly the same keys as the lines to translate: 0, 1, 2, ...
+3. Every value must be a non-empty string.
+4. Keep a strict 1:1 mapping: do not merge, split, omit, reorder, or add extra keys.
+5. Use valid JSON escaping only. Do not insert raw newline characters inside string values unless escaped as \\n.
+6. Do not wrap the answer in triple backticks, do not say "Here is the JSON", and do not add any text before or after the object.
+7. Keep each subtitle short, natural, and spoken; match the character tone and emotion.
+8. Localize honorifics and cultural references when natural in ${langName}; do not add translator notes.${contextRule}${effortPrompt}`
             },
-            { role: 'user', content: JSON.stringify(linesObj) }
+            { role: 'user', content: JSON.stringify(userPayload) }
         ]
     };
 
     // Native OpenAI/Gemini/Claude reject unknown fields — only send widely supported params
     if (!omitTemperature) payload.temperature = 0.2;
 
-    if (useMaxCompletion) payload.max_completion_tokens = 4096;
-    else payload.max_tokens = 4096;
+    if (useMaxCompletion) payload.max_completion_tokens = tokenBudget;
+    else payload.max_tokens = tokenBudget;
 
-    // OpenRouter-only extras
-    if (isOpenRouterEndpoint(apiUrl) && !reasoningOn && !isReasoningStyleModel(model)) {
-        payload.reasoning = { enabled: false };
+    if (tweaks.omitResponseFormat !== true && caps.useJsonObjectFormat) {
+        payload.response_format = { type: 'json_object' };
     }
 
-    // OpenAI reasoning models: optional effort (never send OpenRouter `reasoning` object)
-    if (isOpenAIEndpoint(apiUrl) && isReasoningStyleModel(model) && /(^|\/)o[0-9]/.test(model.toLowerCase())) {
-        payload.reasoning_effort = reasoningOn ? 'medium' : 'low';
+    // OpenAI Chat Completions: reasoning_effort for gpt-5* / o-series (Luna included, not exclusive)
+    if (caps.useOpenAIReasoningEffort) {
+        if (reasoningOn) {
+            payload.reasoning_effort = 'medium';
+        } else if (caps.supportsReasoningNone) {
+            payload.reasoning_effort = 'none';
+        } else {
+            payload.reasoning_effort = 'low';
+        }
+    }
+
+    // OpenRouter: unified reasoning object maps to OpenAI/Anthropic/Gemini/Qwen/etc.
+    if (caps.useOpenRouterReasoning) {
+        if (reasoningOn) {
+            payload.reasoning = { effort: 'medium' };
+        } else if (caps.supportsReasoningNone || caps.needsReasoningControl) {
+            payload.reasoning = { effort: 'none', exclude: true };
+        } else {
+            payload.reasoning = { enabled: false, exclude: true };
+        }
     }
 
     return payload;
@@ -168,6 +316,34 @@ function truncateError(text, n = 180) {
     return String(text || '').replace(/\s+/g, ' ').trim().substring(0, n);
 }
 
+function formatHumanTranslationError(rawError, fallback = 'A fordítási kérés sikertelen volt.') {
+    const detail = String(rawError || '').trim();
+    const text = detail || fallback;
+    const lower = text.toLowerCase();
+
+    if (lower.includes('escaped character') || lower.includes('malformed json') || lower.includes('valid json object') || lower.includes('alignment failed') || lower.includes('could not be repaired')) {
+        return `A fordítási modell nem adta vissza a várt JSON formátumot. Ez általában a modell válaszának formátuma miatt történik. Javaslat: próbálj ki egy stabilabb modellt, például OpenAI gpt-4o-mini vagy Gemini 2.5 flash-lite. Részletek: ${truncateError(text, 180)}`;
+    }
+
+    if (lower.includes('401') || lower.includes('403') || lower.includes('unauthorized') || lower.includes('forbidden')) {
+        return `Az API-kulcs érvénytelen vagy a provider letiltotta a hozzáférést. Ellenőrizd a kulcsot és a provider beállításait. Javaslat: ha a kulcs jó, próbálj ki egy másik modellfajtát. Részletek: ${truncateError(text, 180)}`;
+    }
+
+    if (lower.includes('429') || lower.includes('rate limit') || lower.includes('too many requests')) {
+        return `A szolgáltató túl sok kérést kapott rövid idő alatt, ezért ideiglenesen elutasította a kérést. Várj egy kicsit, vagy próbálj ki olcsóbb, stabilabb modellt. Részletek: ${truncateError(text, 180)}`;
+    }
+
+    if (lower.includes('http 400') || lower.includes('unsupported') || lower.includes('temperature') || lower.includes('max_tokens') || lower.includes('max_completion_tokens')) {
+        return `A modell nem fogadja a beállított API-paramétereket. Javaslat: próbálj ki egy kompatibilisebb modellt. Részletek: ${truncateError(text, 180)}`;
+    }
+
+    if (lower.includes('critical error')) {
+        return `A provider nem fogadja az aktuális beállításokat. Ellenőrizd az API URL-t, a modell nevét és a hozzáférést. Javaslat: ha ez így marad, válassz másik modellre. Részletek: ${truncateError(text, 180)}`;
+    }
+
+    return `A fordítási kérés nem tudott értelmes, subtitle-hoz megfelelő JSON választ adni. Javaslat: próbálj ki egy másik modellt. Részletek: ${truncateError(text, 180)}`;
+}
+
 function payloadTweaksFromHttp400(errorText) {
     const t = (errorText || '').toLowerCase();
     const tweaks = {};
@@ -180,12 +356,74 @@ function payloadTweaksFromHttp400(errorText) {
     if (t.includes('unsupported') && t.includes('temperature')) {
         tweaks.omitTemperature = true;
     }
+    if (t.includes('response_format') || t.includes('json_object') || (t.includes('unsupported') && t.includes('response'))) {
+        tweaks.omitResponseFormat = true;
+    }
     return tweaks;
+}
+
+function decodeEscapedJsonString(rawValue) {
+    return String(rawValue || "")
+        .replace(/\\n/g, "\n")
+        .replace(/\\t/g, "\t")
+        .replace(/\\r/g, "\r")
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, "\\");
+}
+
+function sanitizeModelJsonObject(rawText) {
+    const cleaned = String(rawText || "").trim().replace(/```json/gi, "").replace(/```/g, "").trim();
+    const first = cleaned.indexOf('{');
+    const last = cleaned.lastIndexOf('}');
+    if (first === -1 || last === -1 || last <= first) return null;
+
+    let candidate = cleaned.substring(first, last + 1);
+    candidate = candidate
+        .replace(/\\(?!["\\\/bfnrtu])/g, "\\\\")
+        .replace(/,\s*([}\]])/g, "$1")
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+
+    let inString = false;
+    let escaped = false;
+    let repaired = "";
+    for (let i = 0; i < candidate.length; i++) {
+        const ch = candidate[i];
+        if (inString) {
+            if (escaped) {
+                repaired += ch;
+                escaped = false;
+                continue;
+            }
+            if (ch === '\\') {
+                repaired += ch;
+                escaped = true;
+                continue;
+            }
+            if (ch === '"') {
+                inString = false;
+                repaired += ch;
+                continue;
+            }
+            if (ch === '\n' || ch === '\r') {
+                repaired += "\\n";
+                continue;
+            }
+            repaired += ch;
+            continue;
+        }
+
+        if (ch === '"') {
+            inString = true;
+        }
+        repaired += ch;
+    }
+
+    return repaired;
 }
 
 // 严格解析模型最终输出：返回完整对齐的数组，任何 key 缺失/为空则抛错触发重试
 function parseModelTranslations(content, lines) {
-    const cleaned = content.trim().replace(/```json/gi, '').replace(/```/g, '').trim();
+    const cleaned = String(content || "").trim().replace(/```json/gi, "").replace(/```/g, "").trim();
     const translatedArray = new Array(lines.length).fill(chrome.i18n.getMessage("toast_translation_missing") || "[Translation missing]");
 
     const first = cleaned.indexOf('{');
@@ -195,7 +433,37 @@ function parseModelTranslations(content, lines) {
         throw new Error("Model did not return valid JSON object containing { }");
     }
 
-    const parsedObj = JSON.parse(cleaned.substring(first, last + 1));
+    const rawJson = cleaned.substring(first, last + 1);
+    let parsedObj = null;
+
+    try {
+        parsedObj = JSON.parse(rawJson);
+    } catch (e) {
+        try {
+            const repaired = sanitizeModelJsonObject(rawJson);
+            if (repaired) parsedObj = JSON.parse(repaired);
+        } catch (repairErr) {
+            // fall through to best-effort extraction below
+        }
+    }
+
+    if (!parsedObj) {
+        const fallbackPattern = /"(\d+)"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+        const fallbackObj = {};
+        let match;
+        while ((match = fallbackPattern.exec(rawJson)) !== null) {
+            fallbackObj[match[1]] = decodeEscapedJsonString(match[2]);
+        }
+
+        if (Object.keys(fallbackObj).length) {
+            parsedObj = fallbackObj;
+        }
+    }
+
+    if (!parsedObj) {
+        throw new Error("Model returned malformed JSON that could not be repaired");
+    }
+
     let validKeysCount = 0;
 
     for (let i = 0; i < lines.length; i++) {
@@ -206,8 +474,12 @@ function parseModelTranslations(content, lines) {
         }
     }
 
-    if (validKeysCount < lines.length) {
+    if (validKeysCount === 0) {
         throw new Error(`LLM alignment failed: expected ${lines.length} keys, but only matched ${validKeysCount}`);
+    }
+
+    if (validKeysCount < lines.length) {
+        console.warn(`[CR Bilingual Subtitles] Partial model output: expected ${lines.length} keys, but only matched ${validKeysCount}. Using best-effort mapping for the missing lines.`);
     }
 
     return translatedArray;
@@ -254,7 +526,7 @@ function extractPartialTranslations(content, count) {
     return result;
 }
 
-async function handleBatchTranslation(lines, settings) {
+async function handleBatchTranslation(lines, settings, contextLines = []) {
     const { secondLang, transEngine, apiUrl, aiModel, apiKey, reasoningEnabled } = settings;
     const MAX_RETRIES = 3;
 
@@ -265,7 +537,7 @@ async function handleBatchTranslation(lines, settings) {
         let lastError = null;
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                const payload = buildTranslationPayload(lines, settings, tweaks);
+                const payload = buildTranslationPayload(lines, settings, tweaks, contextLines);
                 const res = await fetch(apiUrl, { method: 'POST', headers, body: JSON.stringify(payload) });
 
                 if (!res.ok) {
@@ -300,7 +572,7 @@ async function handleBatchTranslation(lines, settings) {
 
             } catch (e) {
                 lastError = e;
-                if (e.message.includes('Critical error')) throw e;
+                if (e.message.includes('Critical error')) throw new Error(formatHumanTranslationError(e.message, 'A provider beállítások nem kompatibilisek a kért modelllel.'));
                 if (attempt === MAX_RETRIES) break;
 
                 let delay = 1000 * attempt;
@@ -311,7 +583,7 @@ async function handleBatchTranslation(lines, settings) {
             }
         }
 
-        throw new Error(`Retried ${MAX_RETRIES} attempts, failed: ${lastError.message}`);
+        throw new Error(formatHumanTranslationError(lastError && lastError.message ? lastError.message : 'A fordítási kérés végül sikertelen volt.', 'A fordítási kérés végül sikertelen volt.'));
 
     } else {
         // ====================================================
@@ -364,15 +636,36 @@ async function handleBatchTranslation(lines, settings) {
 //   1) 支持 SSE 的端点 -> 解析 data: 行，增量拼出 content
 //   2) 不支持 stream 的端点 -> 回退为一次性解析整包 chat completion
 // ====================================================
-async function handleStreamTranslation(lines, settings, port) {
+async function handleStreamTranslation(lines, settings, port, contextLines = []) {
     const { transEngine, apiUrl, aiModel, apiKey } = settings;
+    const meta = {
+        ...debugMetaFromSettings(settings),
+        lineCount: Array.isArray(lines) ? lines.length : 0,
+        contextCount: Array.isArray(contextLines) ? contextLines.length : 0
+    };
 
     // 非 custom_llm（如 Google 机翻）无法流式，直接走批量逻辑后回传 done
     if (transEngine !== 'custom_llm' || !apiUrl) {
         try {
-            const res = await handleBatchTranslation(lines, settings);
+            const res = await handleBatchTranslation(lines, settings, contextLines);
+            writeDebugLog({
+                type: "translate_stream",
+                mode: "batch_fallback",
+                success: true,
+                ...meta,
+                at: new Date().toISOString(),
+                resultCount: Array.isArray(res) ? res.length : 0
+            });
             port.postMessage({ type: 'done', success: true, translations: res });
         } catch (e) {
+            writeDebugLog({
+                type: "translate_stream",
+                mode: "batch_fallback",
+                success: false,
+                ...meta,
+                at: new Date().toISOString(),
+                error: e.message
+            });
             port.postMessage({ type: 'done', success: false, error: e.message });
         }
         return;
@@ -386,7 +679,7 @@ async function handleStreamTranslation(lines, settings, port) {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            const payload = buildTranslationPayload(lines, settings, tweaks);
+            const payload = buildTranslationPayload(lines, settings, tweaks, contextLines);
             payload.stream = true;
             const res = await fetch(apiUrl, { method: 'POST', headers, body: JSON.stringify(payload) });
 
@@ -483,13 +776,32 @@ async function handleStreamTranslation(lines, settings, port) {
             if (!translatedArray) {
                 translatedArray = parseModelTranslations(streamedText(), lines);
             }
+            writeDebugLog({
+                type: "translate_stream",
+                success: true,
+                ...meta,
+                at: new Date().toISOString(),
+                resultCount: Array.isArray(translatedArray) ? translatedArray.length : 0,
+                attempt,
+                usedSSE: gotSSE
+            });
             port.postMessage({ type: 'done', success: true, translations: translatedArray });
             return;
 
         } catch (e) {
             lastError = e;
             if (e.message.includes('Critical error')) {
-                port.postMessage({ type: 'done', success: false, error: e.message });
+                const human = formatHumanTranslationError(e.message, 'A provider beállítások nem kompatibilisek a kért modelllel.');
+                writeDebugLog({
+                    type: "translate_stream",
+                    success: false,
+                    ...meta,
+                    at: new Date().toISOString(),
+                    error: human,
+                    rawError: e.message,
+                    attempt
+                });
+                port.postMessage({ type: 'done', success: false, error: human });
                 return;
             }
             if (attempt === MAX_RETRIES) break;
@@ -502,5 +814,14 @@ async function handleStreamTranslation(lines, settings, port) {
         }
     }
 
-    port.postMessage({ type: 'done', success: false, error: `Retried ${MAX_RETRIES} attempts, failed: ${lastError ? lastError.message : 'unknown'}` });
+    const humanFinal = formatHumanTranslationError(lastError && lastError.message ? lastError.message : 'A fordítási kérés végül sikertelen volt.', 'A fordítási kérés végül sikertelen volt.');
+    writeDebugLog({
+        type: "translate_stream",
+        success: false,
+        ...meta,
+        at: new Date().toISOString(),
+        error: humanFinal,
+        rawError: lastError && lastError.message ? lastError.message : null
+    });
+    port.postMessage({ type: 'done', success: false, error: humanFinal });
 }
