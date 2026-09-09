@@ -30,6 +30,39 @@ const translationByCue = {};
 const streamingByCue = {};
 const PRELOAD_AHEAD_SEC = 240; // ~4 minutes — avoid translating the whole episode up front
 const CONTEXT_LINES = 5;
+let consecutiveErrors = 0;
+
+let activeEpisodeSession = {
+    id: 1,
+    trackUrl: "",
+    isCancelled: false
+};
+
+function resetSubtitlePipeline() {
+    activeEpisodeSession.isCancelled = true;
+    activeEpisodeSession = {
+        id: Date.now() + Math.random(),
+        trackUrl: "",
+        isCancelled: false
+    };
+
+    Object.keys(translationByCue).forEach((k) => delete translationByCue[k]);
+    Object.keys(streamingByCue).forEach((k) => delete streamingByCue[k]);
+    consecutiveErrors = 0;
+
+    const textEl = document.getElementById("my-cr-dual-sub-text");
+    if (textEl) {
+        textEl.innerHTML = "";
+        textEl.style.setProperty("display", "none", "important");
+    }
+
+    document.querySelectorAll("video").forEach((v) => {
+        if (v._dualSubListener) {
+            v.removeEventListener("timeupdate", v._dualSubListener);
+            delete v._dualSubListener;
+        }
+    });
+}
 
 function logDual(...args) {
     console.log("[CR Bilingual Subtitles]", ...args);
@@ -57,10 +90,11 @@ function handleSubtitlePayload(detail, via) {
         return;
     }
     if (parsed.url) lastProcessedUrl = parsed.url;
+    latestSubtitleDetail = parsed;
 
-    // New episode / stream: drop previous cue translations
-    Object.keys(translationByCue).forEach(k => delete translationByCue[k]);
-    Object.keys(streamingByCue).forEach(k => delete streamingByCue[k]);
+    // New episode / stream: invalidate previous in-flight work and caches
+    resetSubtitlePipeline();
+    if (parsed.url) lastProcessedUrl = parsed.url;
 
     logDual("payload received via", via, {
         subs: parsed.data.subtitles ? Object.keys(parsed.data.subtitles) : [],
@@ -96,7 +130,32 @@ function readDomBridgePayload() {
 }
 
 let lastProcessedUrl = "";
+let latestSubtitleDetail = null;
 logDual("content script ready");
+
+// Instant clear on episode navigation clicks
+document.addEventListener("click", (e) => {
+    const isEpisodeNav = e.target.closest('[data-testid="next-episode-button"]') ||
+        e.target.closest(".erc-prev-next-episode") ||
+        e.target.closest('a[href*="/watch/"]') ||
+        e.target.closest('[data-t="see-more-episodes-btn"]');
+    if (isEpisodeNav) {
+        lastProcessedUrl = "";
+        resetSubtitlePipeline();
+    }
+}, true);
+
+let currentPathname = location.pathname;
+const checkPathChange = () => {
+    if (location.pathname !== currentPathname) {
+        currentPathname = location.pathname;
+        lastProcessedUrl = "";
+        resetSubtitlePipeline();
+    }
+};
+window.addEventListener("popstate", checkPathChange);
+window.addEventListener("hashchange", checkPathChange);
+setInterval(checkPathChange, 500);
 
 // DOM bridge (attribute is shared across MAIN / isolated worlds)
 document.documentElement.addEventListener("cr-dual-subs-ready", () => {
@@ -122,6 +181,41 @@ window.addEventListener("message", (event) => {
     const data = event.data;
     if (!data || data.source !== "CR_DUAL_SUBS" || data.type !== "CR_SUBTITLE_DATA") return;
     handleSubtitlePayload(data.payload, "postMessage");
+});
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action !== "download_english_subtitle") return;
+
+    const data = latestSubtitleDetail && latestSubtitleDetail.data;
+    const englishTrack = data ? findTrackInManifest(data, "en-US", true) : null;
+    if (!englishTrack) {
+        sendResponse({ success: false, error: chrome.i18n.getMessage("download_english_unavailable") || "English subtitle unavailable" });
+        return;
+    }
+
+    fetch(englishTrack.url)
+        .then((response) => {
+            if (!response.ok) throw new Error("Subtitle request failed");
+            return response.text();
+        })
+        .then((subtitleText) => {
+            const blob = new Blob([subtitleText], { type: "text/vtt;charset=utf-8" });
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const episodeName = document.title.replace(/[\\/:*?"<>|]/g, "").trim() || "crunchyroll-episode";
+            link.href = downloadUrl;
+            link.download = `${episodeName}-en-US.vtt`;
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+            sendResponse({ success: true });
+        })
+        .catch(() => sendResponse({
+            success: false,
+            error: chrome.i18n.getMessage("download_english_failed") || "English subtitle download failed"
+        }));
+
+    return true;
 });
 
 function showToast(message, isError = true) {
@@ -234,6 +328,10 @@ async function initDualSubs(detail, settings) {
         return;
     }
 
+    if (targetTrack.url !== activeEpisodeSession.trackUrl) {
+        activeEpisodeSession.trackUrl = targetTrack.url;
+    }
+
     try {
         const response = await fetch(targetTrack.url);
         const subText = await response.text();
@@ -251,7 +349,6 @@ async function initDualSubs(detail, settings) {
     } catch (e) { showToast(chrome.i18n.getMessage("toast_download_failed")); }
 }
 
-let consecutiveErrors = 0;
 function describeTranslationFailure(rawMessage) {
     const msg = String(rawMessage || "").trim();
     const lower = msg.toLowerCase();
@@ -530,6 +627,8 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
 
     if (video._dualSubListener) video.removeEventListener('timeupdate', video._dualSubListener);
 
+    const currentSessionId = activeEpisodeSession.id;
+
     // Ensure every cue has a stable index (also for older parsed payloads)
     parsedSubs.forEach((sub, i) => {
         if (typeof sub.index !== "number") sub.index = i;
@@ -546,6 +645,8 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
     const MAX_CONCURRENCY = settings.concurrency || 2;
     let isPreloading = false;
 
+    const sessionAlive = () => currentSessionId === activeEpisodeSession.id && !activeEpisodeSession.isCancelled;
+
     const escapeHtml = (s) => String(s)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -559,6 +660,7 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
 
     // ✨ 渲染当前正在显示的字幕行：优先用最终译文，其次用流式中的部分译文，未开始则显示省略号占位
     const renderActive = () => {
+        if (!sessionAlive()) return;
         if (!currentDisplayedSourceText) {
             textElement.style.setProperty('display', 'none', 'important');
             textElement.innerHTML = '';
@@ -578,6 +680,7 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
 
     // chunk = array of { index, text }
     function requestBatch(chunk) {
+        if (!sessionAlive()) return Promise.resolve();
         chunk.forEach(c => inFlight.add(c.index));
         const contextLines = chunk.length ? contextBeforeCue(chunk[0].index) : [];
 
@@ -585,6 +688,7 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
             return new Promise((resolve) => {
                 openTranslationStream(chunk, settings, {
                     onPartial: (tr) => {
+                        if (!sessionAlive()) return;
                         const activeIndexes = currentActiveCues.map(c => c.index);
                         let hitsActive = false;
                         Object.keys(tr).forEach(k => {
@@ -598,6 +702,10 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
                     },
                     onDone: (data, success, error) => {
                         chunk.forEach(c => inFlight.delete(c.index));
+                        if (!sessionAlive()) {
+                            resolve(data);
+                            return;
+                        }
                         if (success && data) {
                             consecutiveErrors = 0;
                             data.forEach((t, i) => {
@@ -622,6 +730,7 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
 
         return fetchAIBatchTranslation(chunk, settings, contextLines).then(data => {
             chunk.forEach(c => inFlight.delete(c.index));
+            if (!sessionAlive()) return data;
             if (currentDisplayedSourceText) renderActive();
             return data;
         }).catch(() => {
@@ -630,10 +739,11 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
     }
 
     const runContinuousPreload = async () => {
-        if (!useAI || isPreloading) return;
+        if (!useAI || isPreloading || !sessionAlive()) return;
         isPreloading = true;
 
         while (consecutiveErrors <= 3) {
+            if (!sessionAlive()) break;
             const v = document.querySelector('video');
             if (!v) break;
             const actualTime = v.currentTime;
@@ -656,6 +766,7 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
 
             const promises = chunks.map(chunk => requestBatch(chunk));
             await Promise.all(promises);
+            if (!sessionAlive()) break;
             await new Promise(r => setTimeout(r, 1000));
         }
 
@@ -663,6 +774,7 @@ function setupContainerAndListen(video, playerContainer, parsedSubs, useAI, sett
     };
 
     video._dualSubListener = () => {
+        if (!sessionAlive()) return;
         if (settings.secondLang === "none") return;
         const currentTime = video.currentTime;
 

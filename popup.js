@@ -24,6 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const saveBtn = document.getElementById("save-btn");
     const openOptionsBtn = document.getElementById("open-options-btn");
     const openDebugBtn = document.getElementById("open-debug-btn");
+    const downloadEnBtn = document.getElementById("download-en-btn");
     const statusEl = document.getElementById("save-status");
 
     let currentLoadedModels = [];
@@ -41,6 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("label-model").textContent = t("model_label");
     loadModelsBtn.textContent = t("load_models_button", "Load models");
     saveBtn.textContent = t("save_button");
+    if (downloadEnBtn) downloadEnBtn.textContent = t("download_english_button", "Download English subtitle");
     modelInput.placeholder = t("model_placeholder");
 
     const langSelect = document.getElementById("lang-select");
@@ -291,6 +293,30 @@ document.addEventListener("DOMContentLoaded", () => {
     if (openDebugBtn) {
         openDebugBtn.addEventListener("click", () => {
             chrome.tabs.create({ url: chrome.runtime.getURL("debug.html") });
+        });
+    }
+
+    if (downloadEnBtn) {
+        downloadEnBtn.addEventListener("click", () => {
+            downloadEnBtn.disabled = true;
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (!tabs[0]) {
+                    showStatus(t("download_english_failed", "Download failed"), "error");
+                    downloadEnBtn.disabled = false;
+                    return;
+                }
+                chrome.tabs.sendMessage(tabs[0].id, { action: "download_english_subtitle" }, (response) => {
+                    downloadEnBtn.disabled = false;
+                    if (chrome.runtime.lastError || !response || !response.success) {
+                        showStatus(
+                            (response && response.error) || t("download_english_unavailable", "English subtitle unavailable"),
+                            "error"
+                        );
+                        return;
+                    }
+                    showStatus(t("download_english_started", "English subtitle download started"), "success");
+                });
+            });
         });
     }
 
