@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Crunchyroll Bilingual Subtitles</title>
+  <title data-i18n="options_title">Settings</title>
   <style>
     :root {
       --bg: #121417;
@@ -256,7 +256,16 @@
     <div class="panel">
       <div class="grid">
         <div class="item">
-          <label for="lang-select">Target language</label>
+          <label for="ui-lang-select" data-i18n="options_ui_language">Settings language</label>
+          <select id="ui-lang-select">
+            <option value="auto" data-i18n="options_ui_lang_auto">Auto (browser)</option>
+            <option value="hu" data-i18n="options_ui_lang_hu">Hungarian</option>
+            <option value="en" data-i18n="options_ui_lang_en">English</option>
+          </select>
+        </div>
+
+        <div class="item">
+          <label for="lang-select" data-i18n="target_language">Target language</label>
           <select id="lang-select">
             <option value="zh-CN">zh-CN</option>
             <option value="zh-HK">zh-HK</option>
@@ -294,7 +303,7 @@
         </div>
 
         <div class="item">
-          <label for="mode-select">Translation mode</label>
+          <label for="mode-select" data-i18n="translation_mode">Translation mode</label>
           <select id="mode-select">
             <option value="fallback">Fallback</option>
             <option value="force_ai">Force AI</option>
@@ -303,7 +312,7 @@
         </div>
 
         <div class="item">
-          <label for="engine-select">Translation engine</label>
+          <label for="engine-select" data-i18n="translation_engine">Translation engine</label>
           <select id="engine-select">
             <option value="google">Google</option>
             <option value="custom_llm">Custom LLM</option>
@@ -314,30 +323,30 @@
 
     <div class="panel">
       <div class="item">
-        <label>API keys by provider</label>
+        <label data-i18n="options_api_keys">API keys by provider</label>
         <div id="provider-key-table" class="provider-key-table"></div>
       </div>
     </div>
 
     <div class="panel" id="custom-url-panel" style="display: none;">
       <div class="item">
-        <label for="api-url">Custom API URL</label>
-        <input type="text" id="api-url" placeholder="https://api.openai.com/v1">
-        <div class="toggle-help" style="margin-top: 8px;">Only use this if you are connecting to a self-hosted or custom OpenAI-compatible endpoint. Leave it empty for the normal OpenAI, Gemini, Claude or OpenRouter setups.</div>
+        <label for="api-url" data-i18n="options_custom_url">Custom API URL</label>
+        <input type="text" id="api-url" data-i18n-placeholder="api_url_placeholder" placeholder="https://api.openai.com/v1">
+        <div class="toggle-help" style="margin-top: 8px;" data-i18n="options_custom_url_help">Only use this if you are connecting to a self-hosted or custom OpenAI-compatible endpoint. Leave it empty for the normal OpenAI, Gemini, Claude or OpenRouter setups.</div>
       </div>
     </div>
 
     <div class="panel" id="ai-fields" style="display: none;">
       <div class="item">
-        <label for="global-model-select">Model</label>
+        <label for="global-model-select" data-i18n="model_label">Model</label>
         <div class="model-filter-row">
-          <input type="search" id="model-filter" placeholder="Filter models… e.g. luna, flash, haiku" autocomplete="off">
+          <input type="search" id="model-filter" data-i18n-placeholder="options_model_filter_placeholder" placeholder="Filter models… e.g. luna, flash, haiku" autocomplete="off">
         </div>
         <div class="row">
           <div class="item">
             <select id="global-model-select" size="12"></select>
           </div>
-          <button type="button" id="load-models-btn" class="btn btn-secondary">Load all models</button>
+          <button type="button" id="load-models-btn" class="btn btn-secondary" data-i18n="options_load_all">Load all models</button>
         </div>
         <div id="model-filter-meta" class="model-filter-meta"></div>
         <div id="models-hint" class="hint"></div>
@@ -349,17 +358,17 @@
           <div class="item" style="display:none;">
             <select id="ai-model-select-legacy"></select>
           </div>
-          <button type="button" id="export-models-btn" class="btn btn-export">Export model list</button>
+          <button type="button" id="export-models-btn" class="btn btn-export" data-i18n="options_export_models">Export model list</button>
         </div>
-        <input type="text" id="ai-model" placeholder="Custom model name" style="display:none; margin-top: 8px;">
+        <input type="text" id="ai-model" data-i18n-placeholder="options_custom_model_placeholder" placeholder="Custom model name" style="display:none; margin-top: 8px;">
       </div>
 
       <div class="toggle-row" style="margin-top: 18px;">
         <div class="toggle-label-block">
-          <label for="reasoning-toggle" style="font-weight: 700; color: var(--text);">Advanced: reasoning</label>
-          <div class="toggle-help">Only for models that support deeper "thinking". Helps on harder sentences, but many models work better with it off.</div>
+          <label for="reasoning-toggle" style="font-weight: 700; color: var(--text);" data-i18n="options_reasoning">Advanced: reasoning</label>
+          <div class="toggle-help" data-i18n="options_reasoning_help">Only for models that support deeper "thinking". Helps on harder sentences, but many models work better with it off.</div>
         </div>
-        <label class="switch" title="Enable deeper reasoning for compatible models">
+        <label class="switch" data-i18n-title="options_reasoning_title" title="Enable deeper reasoning for compatible models">
           <input type="checkbox" id="reasoning-toggle">
           <span class="slider"></span>
         </label>
@@ -367,10 +376,10 @@
 
       <div class="toggle-row">
         <div class="toggle-label-block">
-          <label for="streaming-toggle" style="font-weight: 700; color: var(--text);">Advanced: streaming subtitles</label>
-          <div class="toggle-help">Show subtitles while they are still being generated. Turn it off if you want one full final translation at the end.</div>
+          <label for="streaming-toggle" style="font-weight: 700; color: var(--text);" data-i18n="options_streaming">Advanced: streaming subtitles</label>
+          <div class="toggle-help" data-i18n="options_streaming_help">Show subtitles while they are still being generated. Turn it off if you want one full final translation at the end.</div>
         </div>
-        <label class="switch" title="Stream subtitles live while translating">
+        <label class="switch" data-i18n-title="options_streaming_title" title="Stream subtitles live while translating">
           <input type="checkbox" id="streaming-toggle">
           <span class="slider"></span>
         </label>
@@ -378,22 +387,23 @@
 
       <div class="grid">
         <div class="item">
-          <label for="batch-size">Batch size</label>
+          <label for="batch-size" data-i18n="batch_size_label">Batch size</label>
           <input type="number" id="batch-size" min="1" max="50" value="15">
         </div>
         <div class="item">
-          <label for="concurrency">Concurrency</label>
+          <label for="concurrency" data-i18n="concurrency_label">Concurrency</label>
           <input type="number" id="concurrency" min="1" max="10" value="2">
         </div>
       </div>
     </div>
 
-    <button id="save-btn" class="btn btn-primary">Save</button>
-    <button id="reset-btn" type="button" class="btn btn-secondary" style="margin-top: 12px; width: 100%; background: #3a1d1d; border-color: #8d4343; color: #f6c7c7;">Reset all settings</button>
-    <button id="open-debug-btn" type="button" class="btn btn-secondary" style="margin-top: 12px; width: 100%; background: #3d2d1a; border-color: #8d5b2a; color: #f4d7b1;">Open debug</button>
+    <button id="save-btn" class="btn btn-primary" data-i18n="save_button">Save</button>
+    <button id="reset-btn" type="button" class="btn btn-secondary" style="margin-top: 12px; width: 100%; background: #3a1d1d; border-color: #8d4343; color: #f6c7c7;" data-i18n="options_reset">Reset all settings</button>
+    <button id="open-debug-btn" type="button" class="btn btn-secondary" style="margin-top: 12px; width: 100%; background: #3d2d1a; border-color: #8d5b2a; color: #f4d7b1;" data-i18n="options_open_debug">Open debug</button>
     <div id="save-status" class="status"></div>
   </div>
 
+  <script src="i18n.js"></script>
   <script src="models-api.js"></script>
   <script src="options.js"></script>
 </body>

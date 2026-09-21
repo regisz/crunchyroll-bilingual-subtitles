@@ -268,5 +268,396 @@
     },
     "models_load_failed": {
         "message": "Nem sikerült betölteni a modelleket"
+    },
+    "popup_open_options": {
+        "message": "Teljes beállítások"
+    },
+    "popup_open_debug": {
+        "message": "Hibakeresés"
+    },
+    "options_title": {
+        "message": "Beállítások"
+    },
+    "options_api_keys": {
+        "message": "API kulcsok szolgáltatónként"
+    },
+    "options_custom_url": {
+        "message": "Egyéni API URL"
+    },
+    "options_custom_url_help": {
+        "message": "Csak saját vagy egyéni OpenAI-kompatibilis végpontnál használd. A szokásos OpenAI, Gemini, Claude vagy OpenRouter beállításnál hagyd üresen."
+    },
+    "options_model_filter_placeholder": {
+        "message": "Modell szűrése… pl. luna, flash, haiku"
+    },
+    "options_load_all": {
+        "message": "Összes modell betöltése"
+    },
+    "options_export_models": {
+        "message": "Modelllista exportálása"
+    },
+    "options_exporting": {
+        "message": "Exportálás…"
+    },
+    "options_custom_model_placeholder": {
+        "message": "Egyéni modellnév"
+    },
+    "options_reasoning": {
+        "message": "Haladó: gondolkodás"
+    },
+    "options_reasoning_help": {
+        "message": "Csak a mélyebb gondolkodást támogató modelleknél. Nehezebb mondatoknál segíthet, de sok modell jobb, ha ki van kapcsolva."
+    },
+    "options_reasoning_title": {
+        "message": "Mélyebb gondolkodás a kompatibilis modelleknél"
+    },
+    "options_streaming": {
+        "message": "Haladó: folyamatos felirat"
+    },
+    "options_streaming_help": {
+        "message": "A feliratot már generálás közben mutatja. Kapcsold ki, ha csak a kész fordítást akarod látni."
+    },
+    "options_streaming_title": {
+        "message": "Felirat mutatása fordítás közben"
+    },
+    "options_reset": {
+        "message": "Összes beállítás törlése"
+    },
+    "options_open_debug": {
+        "message": "Hibakeresés megnyitása"
+    },
+    "options_no_models": {
+        "message": "Nincs betöltött modell — javítsd lent az API kulcsot vagy a szolgáltatót"
+    },
+    "options_no_match": {
+        "message": "Nincs találat: „$QUERY$”",
+        "placeholders": {
+            "query": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_filter_showing": {
+        "message": "$SHOWN$ / $TOTAL$ találat",
+        "placeholders": {
+            "shown": {
+                "content": "$1"
+            },
+            "total": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_filter_query": {
+        "message": "$SHOWN$ / $TOTAL$ (szűrő: „$QUERY$”)",
+        "placeholders": {
+            "shown": {
+                "content": "$1"
+            },
+            "total": {
+                "content": "$2"
+            },
+            "query": {
+                "content": "$3"
+            }
+        }
+    },
+    "options_filter_hint": {
+        "message": "$TOTAL$ modell — írj a szűrőbe",
+        "placeholders": {
+            "total": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_status_ok": {
+        "message": "$LABEL$: rendben — $COUNT$ modell",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            },
+            "count": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_status_failed": {
+        "message": "$LABEL$: sikertelen — $DETAIL$",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            },
+            "detail": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_status_skipped": {
+        "message": "$LABEL$: kihagyva — $DETAIL$",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            },
+            "detail": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_status_loading": {
+        "message": "$LABEL$: betöltés…",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_api_key_for": {
+        "message": "API kulcs: $LABEL$",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_skip_no_key": {
+        "message": "nincs API kulcs"
+    },
+    "options_skip_no_url": {
+        "message": "nincs egyéni API URL"
+    },
+    "options_empty_catalog": {
+        "message": "Az API válaszolt, de nincs használható chat modell"
+    },
+    "options_export_empty": {
+        "message": "Nincs exportálható modell."
+    },
+    "options_export_done": {
+        "message": "A látható modelllista JSON-ként exportálva."
+    },
+    "options_loading_all": {
+        "message": "Modellek betöltése minden beállított szolgáltatóról…"
+    },
+    "options_none_failed": {
+        "message": "Egyik szolgáltató sem adott modellt. Nézd a sikertelen sorokat (általában rossz vagy hiányzó API kulcs)."
+    },
+    "options_none_keys": {
+        "message": "Nincs API kulcs. Adj meg legalább egyet, majd töltsd be újra."
+    },
+    "options_partial": {
+        "message": "$OK$ szolgáltató betöltve, $FAILED$ sikertelen. Csak a sikeresek látszanak a listában.",
+        "placeholders": {
+            "ok": {
+                "content": "$1"
+            },
+            "failed": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_loaded_ok": {
+        "message": "Modellek betöltve $OK$ szolgáltatóról$SKIP$.",
+        "placeholders": {
+            "ok": {
+                "content": "$1"
+            },
+            "skip": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_skip_note": {
+        "message": " ($COUNT$ kihagyva kulcs vagy URL nélkül)",
+        "placeholders": {
+            "count": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_loading_configured": {
+        "message": "Modellek betöltése a beállított szolgáltatásokról…"
+    },
+    "options_add_keys": {
+        "message": "Add meg a szolgáltatói API kulcsokat, majd kattints az Összes modell betöltése gombra."
+    },
+    "options_reset_done": {
+        "message": "Minden beállítás törölve, az alapértelmezés visszaállítva."
+    },
+    "options_need_key": {
+        "message": "Add meg a kiválasztott szolgáltató API kulcsát"
+    },
+    "options_provider_failed_earlier": {
+        "message": "A(z) $LABEL$ modelllistája korábban sikertelen volt: $DETAIL$",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            },
+            "detail": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_saved": {
+        "message": "Beállítások mentve. Töltsd újra a Crunchyroll lapot, hogy érvénybe lépjen."
+    },
+    "options_err_key_missing": {
+        "message": "hiányzó API kulcs"
+    },
+    "options_err_unauthorized": {
+        "message": "érvénytelen vagy nem engedélyezett API kulcs"
+    },
+    "options_err_forbidden": {
+        "message": "az API kulcsnak nincs hozzáférése"
+    },
+    "options_err_rate": {
+        "message": "túl sok kérés — próbáld később"
+    },
+    "options_err_not_found": {
+        "message": "a modell-végpont nem található (rossz URL vagy leállított API)"
+    },
+    "options_err_network": {
+        "message": "hálózati hiba — ellenőrizd a kapcsolatot vagy a bővítmény jogosultságait"
+    },
+    "debug_title": {
+        "message": "Hibakeresés"
+    },
+    "debug_provider": {
+        "message": "Szolgáltató"
+    },
+    "debug_model": {
+        "message": "Modell"
+    },
+    "debug_api_url": {
+        "message": "API URL"
+    },
+    "debug_api_key": {
+        "message": "API kulcs"
+    },
+    "debug_root_cause": {
+        "message": "Hiba oka"
+    },
+    "debug_latest_request": {
+        "message": "Utolsó kérés"
+    },
+    "debug_latest_catalog": {
+        "message": "Utolsó modellkatalógus"
+    },
+    "debug_refresh": {
+        "message": "Frissítés"
+    },
+    "debug_waiting": {
+        "message": "Várakozás…"
+    },
+    "debug_no_request": {
+        "message": "Még nincs rögzített kérés."
+    },
+    "debug_no_catalog": {
+        "message": "Még nincs betöltött katalógus."
+    },
+    "debug_success": {
+        "message": "Siker"
+    },
+    "debug_failed": {
+        "message": "Sikertelen"
+    },
+    "debug_warning": {
+        "message": "Ezt az oldalt a bővítmény felületéről kell megnyitni (popup vagy beállítások), különben nem látszanak a futásidejű adatok."
+    },
+    "debug_key_not_set": {
+        "message": "nincs megadva"
+    },
+    "debug_cause_none": {
+        "message": "Még nem futott fordítási kérés. A bővítmény be van állítva, de kérés még nem ment ki."
+    },
+    "debug_cause_url_mismatch": {
+        "message": "A szolgáltató és az API URL nem egyezik. A kiválasztott szolgáltató: $PROVIDER$, a kérés viszont ezt használja: $URL$. Ez általában 401/403 hibát okoz.",
+        "placeholders": {
+            "provider": {
+                "content": "$1"
+            },
+            "url": {
+                "content": "$2"
+            }
+        }
+    },
+    "debug_cause_bad_key": {
+        "message": "Az API kulcs érvénytelen a kiválasztott szolgáltatóhoz, vagy rossz kulcs van használatban."
+    },
+    "debug_cause_params": {
+        "message": "A modell elutasítja valamelyik kérésparamétert. Próbálj másik modellt, vagy kapcsold ki a nem támogatott paramétert."
+    },
+    "debug_cause_rate": {
+        "message": "A szolgáltató korlátozta a kéréseket."
+    },
+    "debug_cause_json": {
+        "message": "A modell nem a várt formátumban válaszolt, ezért a felirat nem értelmezhető."
+    },
+    "debug_cause_ok": {
+        "message": "A kérés sikerült. Ha mégis gond van, az inkább modell- vagy feldolgozási eltérés, nem API- vagy kulcshiba."
+    },
+    "debug_cause_unknown": {
+        "message": "A kérés sikertelen, de az ok nem egyértelmű. Nézd együtt a szolgáltatót, a modellt és az API URL-t."
+    },
+    "lang_cs_cz": {
+        "message": "Cseh (cs-CZ)"
+    },
+    "lang_da_dk": {
+        "message": "Dán (da-DK)"
+    },
+    "lang_el_gr": {
+        "message": "Görög (el-GR)"
+    },
+    "lang_fi_fi": {
+        "message": "Finn (fi-FI)"
+    },
+    "lang_he_il": {
+        "message": "Héber (he-IL)"
+    },
+    "lang_hi_in": {
+        "message": "Hindi (hi-IN)"
+    },
+    "lang_ja_jp": {
+        "message": "Japán (ja-JP)"
+    },
+    "lang_ko_kr": {
+        "message": "Koreai (ko-KR)"
+    },
+    "lang_nl_nl": {
+        "message": "Holland (nl-NL)"
+    },
+    "lang_no_no": {
+        "message": "Norvég (no-NO)"
+    },
+    "lang_pl_pl": {
+        "message": "Lengyel (pl-PL)"
+    },
+    "lang_ro_ro": {
+        "message": "Román (ro-RO)"
+    },
+    "lang_sv_se": {
+        "message": "Svéd (sv-SE)"
+    },
+    "lang_tl_ph": {
+        "message": "Tagalog (tl-PH)"
+    },
+    "lang_tr_tr": {
+        "message": "Török (tr-TR)"
+    },
+    "lang_uk_ua": {
+        "message": "Ukrán (uk-UA)"
+    },
+    "auto_repair_label": {
+        "message": "Hiányzó sorok automatikus javítása (másodlagos újrapróbálás, ha a modell kihagy sorokat)"
+    },
+    "options_ui_language": {
+        "message": "Beállítások nyelve"
+    },
+    "options_ui_lang_auto": {
+        "message": "Automatikus (böngésző)"
+    },
+    "options_ui_lang_hu": {
+        "message": "Magyar"
+    },
+    "options_ui_lang_en": {
+        "message": "Angol"
     }
 }

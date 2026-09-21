@@ -5,11 +5,14 @@ const storageKeys = [
   "apiKey",
   "providerApiKeys",
   "lastDebugRequest",
-  "lastDebugCatalog"
+  "lastDebugCatalog",
+  "uiLang"
 ];
 
+const t = (...args) => ExtI18n.t(...args);
+
 function maskKey(value) {
-  if (!value) return "not set";
+  if (!value) return t("debug_key_not_set", "not set");
   if (value.length <= 6) return "***";
   return `${value.slice(0, 3)}${"*".repeat(Math.max(3, value.length - 6))}${value.slice(-3)}`;
 }
@@ -24,7 +27,7 @@ function describeRootCause(provider, apiUrl, req) {
   const lower = text.toLowerCase();
 
   if (!req || !req.type) {
-    return "No translated request has run yet. The extension is configured, but no runtime request has been sent.";
+    return t("debug_cause_none", "No translated request has run yet. The extension is configured, but no runtime request has been sent.");
   }
 
   if (provider && apiUrl) {
@@ -35,35 +38,40 @@ function describeRootCause(provider, apiUrl, req) {
       (expectedProvider === "claude" && apiUrl.includes("api.anthropic.com")) ||
       (expectedProvider === "openrouter" && apiUrl.includes("openrouter.ai"));
 
-    if (!urlMatchesProvider) {
-      return `Provider and API URL do not match. The selected provider is ${provider}, but the request is still using ${apiUrl}. This usually causes 401/403 auth errors.`;
+    if (!urlMatchesProvider && expectedProvider !== "custom") {
+      return t(
+        "debug_cause_url_mismatch",
+        `Provider and API URL do not match. The selected provider is ${provider}, but the request is still using ${apiUrl}.`,
+        [provider, apiUrl]
+      );
     }
   }
 
   if (lower.includes("incorrect api key") || lower.includes("unauthorized") || lower.includes("401") || lower.includes("403")) {
-    return "The API key is invalid for the selected provider or the wrong provider key is being used.";
+    return t("debug_cause_bad_key", "The API key is invalid for the selected provider or the wrong provider key is being used.");
   }
 
   if (lower.includes("unsupported") && (lower.includes("max_tokens") || lower.includes("temperature") || lower.includes("max_completion_tokens"))) {
-    return "The chosen model rejects one of the request parameters. Try a different model or disable the unsupported parameter.";
+    return t("debug_cause_params", "The chosen model rejects one of the request parameters.");
   }
 
   if (lower.includes("rate limit") || lower.includes("429")) {
-    return "The provider rejected the request because of rate limiting or temporary throttling.";
+    return t("debug_cause_rate", "The provider rejected the request because of rate limiting.");
   }
 
   if (lower.includes("malformed json") || lower.includes("alignment failed") || lower.includes("could not be repaired")) {
-    return "The model responded with an unexpected format, so the subtitle JSON could not be parsed correctly.";
+    return t("debug_cause_json", "The model responded with an unexpected format.");
   }
 
   if (req.success) {
-    return "The request succeeded. If there is still a problem, it is likely a model or parsing mismatch rather than an API/auth failure.";
+    return t("debug_cause_ok", "The request succeeded.");
   }
 
-  return "The request failed, but the error does not clearly point to one root cause. Check the provider, model, and API URL together.";
+  return t("debug_cause_unknown", "The request failed, but the error does not clearly point to one root cause.");
 }
 
 function render() {
+  ExtI18n.applyStaticI18n(document);
   const warningEl = document.getElementById("debug-warning");
   if (!window.chrome || !chrome.storage || !chrome.storage.local) {
     warningEl.style.display = "block";
@@ -77,7 +85,7 @@ function render() {
     const apiUrl = items.apiUrl || "not set";
     const apiKey = items.providerApiKeys && items.providerApiKeys[provider]
       ? items.providerApiKeys[provider]
-      : (items.apiKey || "not set");
+      : (items.apiKey || "");
 
     document.getElementById("debug-provider").textContent = provider;
     document.getElementById("debug-model").textContent = model;
@@ -90,30 +98,50 @@ function render() {
     const rootCauseEl = document.getElementById("debug-root-cause");
 
     if (!req || !req.type) {
-      setStatus(statusEl, "warn", "Waiting…");
-      requestEl.textContent = "No request recorded yet.";
-      rootCauseEl.textContent = "No translated request has run yet. The extension is configured, but no runtime request has been sent.";
+      setStatus(statusEl, "warn", t("debug_waiting", "Waiting…"));
+      requestEl.textContent = t("debug_no_request", "No request recorded yet.");
+      rootCauseEl.textContent = t("debug_cause_none", "No translated request has run yet.");
     } else {
       const state = req.success ? "success" : "error";
-      setStatus(statusEl, state, req.success ? "Success" : "Failed");
+      setStatus(statusEl, state, req.success ? t("debug_success", "Success") : t("debug_failed", "Failed"));
       requestEl.textContent = JSON.stringify(req, null, 2);
       rootCauseEl.textContent = describeRootCause(provider, apiUrl, req);
     }
 
     const catalog = items.lastDebugCatalog || { provider: provider, models: [] };
-    document.getElementById("debug-catalog").textContent = JSON.stringify(catalog, null, 2);
+    document.getElementById("debug-catalog").textContent = catalog && (catalog.providers || catalog.models || catalog.error)
+      ? JSON.stringify(catalog, null, 2)
+      : t("debug_no_catalog", "No catalog loaded yet.");
   });
 }
 
 const refreshBtn = document.getElementById("refresh-btn");
 if (refreshBtn) refreshBtn.addEventListener("click", render);
-render();
+async function boot() {
+  try {
+    const uiLang = await ExtI18n.loadUiLangFromStorage();
+    await ExtI18n.applyUiLanguage(uiLang);
+  } catch (e) {
+    console.warn("[CR Dual Subs] debug UI language failed", e);
+    await ExtI18n.applyUiLanguage("auto");
+  }
+  render();
+}
+
+boot();
 
 // Live update when translation / model load writes storage
 if (chrome.storage && chrome.storage.onChanged) {
-  chrome.storage.onChanged.addListener((changes, area) => {
+  chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== "local") return;
-    const watched = ["aiProvider", "aiModel", "apiUrl", "apiKey", "providerApiKeys", "lastDebugRequest", "lastDebugCatalog"];
+    if (changes.uiLang) {
+      try {
+        await ExtI18n.applyUiLanguage(changes.uiLang.newValue || "auto");
+      } catch (e) {
+        console.warn("[CR Dual Subs] debug UI language switch failed", e);
+      }
+    }
+    const watched = ["aiProvider", "aiModel", "apiUrl", "apiKey", "providerApiKeys", "lastDebugRequest", "lastDebugCatalog", "uiLang"];
     if (watched.some((key) => Object.prototype.hasOwnProperty.call(changes, key))) {
       render();
     }

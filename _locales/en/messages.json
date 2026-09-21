@@ -319,5 +319,345 @@
     },
     "models_load_failed": {
         "message": "Failed to load models"
+    },
+    "popup_open_options": {
+        "message": "Open full settings"
+    },
+    "popup_open_debug": {
+        "message": "Open debug"
+    },
+    "options_title": {
+        "message": "Settings"
+    },
+    "options_api_keys": {
+        "message": "API keys by provider"
+    },
+    "options_custom_url": {
+        "message": "Custom API URL"
+    },
+    "options_custom_url_help": {
+        "message": "Only use this if you are connecting to a self-hosted or custom OpenAI-compatible endpoint. Leave it empty for the normal OpenAI, Gemini, Claude or OpenRouter setups."
+    },
+    "options_model_filter_placeholder": {
+        "message": "Filter models… e.g. luna, flash, haiku"
+    },
+    "options_load_all": {
+        "message": "Load all models"
+    },
+    "options_export_models": {
+        "message": "Export model list"
+    },
+    "options_exporting": {
+        "message": "Exporting…"
+    },
+    "options_custom_model_placeholder": {
+        "message": "Custom model name"
+    },
+    "options_reasoning": {
+        "message": "Advanced: reasoning"
+    },
+    "options_reasoning_help": {
+        "message": "Only for models that support deeper thinking. Helps on harder sentences, but many models work better with it off."
+    },
+    "options_reasoning_title": {
+        "message": "Enable deeper reasoning for compatible models"
+    },
+    "options_streaming": {
+        "message": "Advanced: streaming subtitles"
+    },
+    "options_streaming_help": {
+        "message": "Show subtitles while they are still being generated. Turn it off if you want one full final translation at the end."
+    },
+    "options_streaming_title": {
+        "message": "Stream subtitles live while translating"
+    },
+    "options_reset": {
+        "message": "Reset all settings"
+    },
+    "options_open_debug": {
+        "message": "Open debug"
+    },
+    "options_no_models": {
+        "message": "No models loaded — fix API keys or provider errors below"
+    },
+    "options_no_match": {
+        "message": "No models match “$QUERY$”",
+        "placeholders": {
+            "query": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_filter_showing": {
+        "message": "Showing $SHOWN$ of $TOTAL$",
+        "placeholders": {
+            "shown": {
+                "content": "$1"
+            },
+            "total": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_filter_query": {
+        "message": "Showing $SHOWN$ of $TOTAL$ (filter: “$QUERY$”)",
+        "placeholders": {
+            "shown": {
+                "content": "$1"
+            },
+            "total": {
+                "content": "$2"
+            },
+            "query": {
+                "content": "$3"
+            }
+        }
+    },
+    "options_filter_hint": {
+        "message": "$TOTAL$ models — type above to filter",
+        "placeholders": {
+            "total": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_status_ok": {
+        "message": "$LABEL$: OK — $COUNT$ models loaded",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            },
+            "count": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_status_failed": {
+        "message": "$LABEL$: FAILED — $DETAIL$",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            },
+            "detail": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_status_skipped": {
+        "message": "$LABEL$: skipped — $DETAIL$",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            },
+            "detail": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_status_loading": {
+        "message": "$LABEL$: loading…",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_api_key_for": {
+        "message": "API key for $LABEL$",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_skip_no_key": {
+        "message": "no API key"
+    },
+    "options_skip_no_url": {
+        "message": "no custom API URL"
+    },
+    "options_empty_catalog": {
+        "message": "API responded but returned 0 usable chat models"
+    },
+    "options_export_empty": {
+        "message": "No models are available to export."
+    },
+    "options_export_done": {
+        "message": "Visible model list exported as JSON."
+    },
+    "options_loading_all": {
+        "message": "Loading models for every configured provider…"
+    },
+    "options_none_failed": {
+        "message": "No provider returned models. Check the FAILED lines below (usually a bad or missing API key)."
+    },
+    "options_none_keys": {
+        "message": "No API keys configured. Add at least one provider key, then load again."
+    },
+    "options_partial": {
+        "message": "Loaded $OK$ provider(s), but $FAILED$ failed. Only successful providers appear in the model list.",
+        "placeholders": {
+            "ok": {
+                "content": "$1"
+            },
+            "failed": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_loaded_ok": {
+        "message": "Loaded models from $OK$ provider(s)$SKIP$.",
+        "placeholders": {
+            "ok": {
+                "content": "$1"
+            },
+            "skip": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_skip_note": {
+        "message": " ($COUNT$ skipped without key/URL)",
+        "placeholders": {
+            "count": {
+                "content": "$1"
+            }
+        }
+    },
+    "options_loading_configured": {
+        "message": "Loading models for configured providers…"
+    },
+    "options_add_keys": {
+        "message": "Add provider API keys above, then click Load all models."
+    },
+    "options_reset_done": {
+        "message": "All settings cleared and reset to defaults."
+    },
+    "options_need_key": {
+        "message": "Enter API key for the selected provider"
+    },
+    "options_provider_failed_earlier": {
+        "message": "$LABEL$ model list failed earlier: $DETAIL$",
+        "placeholders": {
+            "label": {
+                "content": "$1"
+            },
+            "detail": {
+                "content": "$2"
+            }
+        }
+    },
+    "options_saved": {
+        "message": "Settings saved. Reload the Crunchyroll tab to apply."
+    },
+    "options_err_key_missing": {
+        "message": "API key missing"
+    },
+    "options_err_unauthorized": {
+        "message": "invalid or unauthorized API key"
+    },
+    "options_err_forbidden": {
+        "message": "API key forbidden / no access"
+    },
+    "options_err_rate": {
+        "message": "rate limited — try again later"
+    },
+    "options_err_not_found": {
+        "message": "models endpoint not found (bad URL or retired API)"
+    },
+    "options_err_network": {
+        "message": "network error — check connection or extension permissions"
+    },
+    "debug_title": {
+        "message": "Debug"
+    },
+    "debug_provider": {
+        "message": "Provider"
+    },
+    "debug_model": {
+        "message": "Model"
+    },
+    "debug_api_url": {
+        "message": "API URL"
+    },
+    "debug_api_key": {
+        "message": "API key"
+    },
+    "debug_root_cause": {
+        "message": "Root cause"
+    },
+    "debug_latest_request": {
+        "message": "Latest request"
+    },
+    "debug_latest_catalog": {
+        "message": "Latest model catalog"
+    },
+    "debug_refresh": {
+        "message": "Refresh"
+    },
+    "debug_waiting": {
+        "message": "Waiting…"
+    },
+    "debug_no_request": {
+        "message": "No request recorded yet."
+    },
+    "debug_no_catalog": {
+        "message": "No catalog loaded yet."
+    },
+    "debug_success": {
+        "message": "Success"
+    },
+    "debug_failed": {
+        "message": "Failed"
+    },
+    "debug_warning": {
+        "message": "This debug page must be opened from the extension UI. Open it from the popup or settings page to see runtime data."
+    },
+    "debug_key_not_set": {
+        "message": "not set"
+    },
+    "debug_cause_none": {
+        "message": "No translated request has run yet. The extension is configured, but no runtime request has been sent."
+    },
+    "debug_cause_url_mismatch": {
+        "message": "Provider and API URL do not match. The selected provider is $PROVIDER$, but the request is still using $URL$. This usually causes 401/403 auth errors.",
+        "placeholders": {
+            "provider": {
+                "content": "$1"
+            },
+            "url": {
+                "content": "$2"
+            }
+        }
+    },
+    "debug_cause_bad_key": {
+        "message": "The API key is invalid for the selected provider or the wrong provider key is being used."
+    },
+    "debug_cause_params": {
+        "message": "The chosen model rejects one of the request parameters. Try a different model or disable the unsupported parameter."
+    },
+    "debug_cause_rate": {
+        "message": "The provider rejected the request because of rate limiting or temporary throttling."
+    },
+    "debug_cause_json": {
+        "message": "The model responded with an unexpected format, so the subtitle JSON could not be parsed correctly."
+    },
+    "debug_cause_ok": {
+        "message": "The request succeeded. If there is still a problem, it is likely a model or parsing mismatch rather than an API/auth failure."
+    },
+    "debug_cause_unknown": {
+        "message": "The request failed, but the error does not clearly point to one root cause. Check the provider, model, and API URL together."
+    },
+    "options_ui_language": {
+        "message": "Settings language"
+    },
+    "options_ui_lang_auto": {
+        "message": "Auto (browser)"
+    },
+    "options_ui_lang_hu": {
+        "message": "Hungarian"
+    },
+    "options_ui_lang_en": {
+        "message": "English"
     }
 }

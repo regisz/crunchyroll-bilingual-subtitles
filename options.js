@@ -1,15 +1,11 @@
 const MANUAL_MODEL_VALUE = "__manual__";
 const PROVIDER_ORDER = ["openai", "gemini", "claude", "openrouter", "custom"];
-const PROVIDER_LABELS = {
-    openai: "OpenAI",
-    gemini: "Google",
-    claude: "Anthropic",
-    openrouter: "OpenRouter",
-    custom: "Custom"
-};
+
+const t = (...args) => ExtI18n.t(...args);
+const applyUiLanguage = (...args) => ExtI18n.applyUiLanguage(...args);
 
 function getProviderLabel(provider) {
-    return PROVIDER_LABELS[provider] || String(provider || "").replace(/_/g, " ");
+    return t("provider_" + provider, String(provider || "").replace(/_/g, " "));
 }
 
 function detectProvider(apiUrl, aiModel) {
@@ -43,20 +39,36 @@ function humanizeProviderLoadError(raw) {
     const text = String(raw || "").trim();
     const lower = text.toLowerCase();
     if (!text) return "unknown error";
-    if (lower.includes("api key required")) return "API key missing";
+    if (lower.includes("api key required")) return t("options_err_key_missing", "API key missing");
     if (lower.includes("401") || lower.includes("unauthorized") || lower.includes("incorrect api key") || lower.includes("invalid api key")) {
-        return "invalid or unauthorized API key";
+        return t("options_err_unauthorized", "invalid or unauthorized API key");
     }
-    if (lower.includes("403") || lower.includes("forbidden")) return "API key forbidden / no access";
-    if (lower.includes("429") || lower.includes("rate limit")) return "rate limited — try again later";
-    if (lower.includes("404")) return "models endpoint not found (bad URL or retired API)";
+    if (lower.includes("403") || lower.includes("forbidden")) return t("options_err_forbidden", "API key forbidden / no access");
+    if (lower.includes("429") || lower.includes("rate limit")) return t("options_err_rate", "rate limited — try again later");
+    if (lower.includes("404")) return t("options_err_not_found", "models endpoint not found (bad URL or retired API)");
     if (lower.includes("failed to fetch") || lower.includes("networkerror") || lower.includes("network")) {
-        return "network error — check connection or extension permissions";
+        return t("options_err_network", "network error — check connection or extension permissions");
     }
     return text.length > 160 ? `${text.slice(0, 160)}…` : text;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+    const uiLangSelect = document.getElementById("ui-lang-select");
+    const langSelect = document.getElementById("lang-select");
+    const modeSelect = document.getElementById("mode-select");
+
+    // Load override first so labels render in the chosen language
+    const initialUiLang = await ExtI18n.loadUiLangFromStorage();
+    try {
+        await applyUiLanguage(initialUiLang);
+    } catch (e) {
+        console.warn("[CR Dual Subs] UI language load failed, falling back to browser locale", e);
+        await applyUiLanguage("auto");
+    }
+    if (uiLangSelect) {
+        uiLangSelect.value = ExtI18n.getUiLangOverride();
+    }
+
     const aiFields = document.getElementById("ai-fields");
     const engineSelect = document.getElementById("engine-select");
     const globalModelSelect = document.getElementById("global-model-select");
@@ -75,8 +87,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const resetBtn = document.getElementById("reset-btn");
     const openDebugBtn = document.getElementById("open-debug-btn");
     const statusEl = document.getElementById("save-status");
-    const langSelect = document.getElementById("lang-select");
-    const modeSelect = document.getElementById("mode-select");
 
     let preferredModel = "";
     let selectedProvider = "openai";
@@ -123,7 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!allModelOptions.length) {
             const empty = document.createElement("option");
             empty.value = "";
-            empty.textContent = "No models loaded — fix API keys / provider errors below";
+            empty.textContent = t("options_no_models", "No models loaded — fix API keys / provider errors below");
             globalModelSelect.appendChild(empty);
             if (modelFilterMeta) modelFilterMeta.textContent = "";
             return;
@@ -133,11 +143,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const empty = document.createElement("option");
             empty.value = "";
             empty.textContent = query
-                ? `No models match “${query}”`
-                : "No models";
+                ? t("options_no_match", `No models match “${query}”`, [query])
+                : t("options_no_models", "No models");
             globalModelSelect.appendChild(empty);
             if (modelFilterMeta) {
-                modelFilterMeta.textContent = `Showing 0 of ${allModelOptions.length}`;
+                modelFilterMeta.textContent = t("options_filter_showing", `Showing 0 of ${allModelOptions.length}`, ["0", String(allModelOptions.length)]);
             }
             return;
         }
@@ -159,8 +169,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (modelFilterMeta) {
             modelFilterMeta.textContent = query
-                ? `Showing ${filtered.length} of ${allModelOptions.length} (filter: “${query}”)`
-                : `${allModelOptions.length} models — type above to filter`;
+                ? t("options_filter_query", `Showing ${filtered.length} of ${allModelOptions.length}`, [String(filtered.length), String(allModelOptions.length), query])
+                : t("options_filter_hint", `${allModelOptions.length} models — type above to filter`, [String(allModelOptions.length)]);
         }
     };
 
@@ -174,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 allModelOptions.push({
                     provider,
                     id,
-                    label: `${PROVIDER_LABELS[provider] || provider} - ${id}`
+                    label: `${getProviderLabel(provider)} - ${id}`
                 });
             });
         });
@@ -218,13 +228,13 @@ document.addEventListener("DOMContentLoaded", () => {
             line.className = `provider-status-line ${st.state || ""}`;
             const label = getProviderLabel(provider);
             if (st.state === "ok") {
-                line.textContent = `${label}: OK — ${st.count} models loaded`;
+                line.textContent = t("options_status_ok", `${label}: OK — ${st.count} models loaded`, [label, String(st.count)]);
             } else if (st.state === "error") {
-                line.textContent = `${label}: FAILED — ${st.detail}`;
+                line.textContent = t("options_status_failed", `${label}: FAILED — ${st.detail}`, [label, st.detail || ""]);
             } else if (st.state === "skip") {
-                line.textContent = `${label}: skipped — ${st.detail}`;
+                line.textContent = t("options_status_skipped", `${label}: skipped — ${st.detail}`, [label, st.detail || ""]);
             } else if (st.state === "loading") {
-                line.textContent = `${label}: loading…`;
+                line.textContent = t("options_status_loading", `${label}: loading…`, [label]);
             } else {
                 line.textContent = `${label}: ${st.detail || st.state}`;
             }
@@ -241,7 +251,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const providerName = document.createElement("div");
             providerName.className = "provider-name";
-            providerName.textContent = PROVIDER_LABELS[provider] || provider;
+            providerName.textContent = getProviderLabel(provider);
 
             const providerInputWrap = document.createElement("div");
             providerInputWrap.className = "provider-input-wrap";
@@ -249,7 +259,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const keyInput = document.createElement("input");
             keyInput.type = "password";
             keyInput.value = providerApiKeys[provider] || "";
-            keyInput.placeholder = `API key for ${PROVIDER_LABELS[provider] || provider}`;
+            keyInput.placeholder = t("options_api_key_for", `API key for ${getProviderLabel(provider)}`, [getProviderLabel(provider)]);
             keyInput.addEventListener("input", () => {
                 setActiveProviderKey(provider, keyInput.value.trim());
                 if (provider === "custom") {
@@ -263,6 +273,26 @@ document.addEventListener("DOMContentLoaded", () => {
             providerKeyTable.appendChild(row);
         });
     };
+
+    if (uiLangSelect) {
+        uiLangSelect.addEventListener("change", async () => {
+            const next = uiLangSelect.value || "auto";
+            try {
+                await applyUiLanguage(next);
+                // Persist immediately so popup/debug pick it up without Save
+                await new Promise((resolve) => chrome.storage.local.set({ uiLang: next }, resolve));
+            } catch (e) {
+                console.warn("[CR Dual Subs] UI language switch failed", e);
+                await applyUiLanguage("auto");
+                uiLangSelect.value = "auto";
+            }
+            uiLangSelect.value = ExtI18n.getUiLangOverride();
+            // JS-built bits are not covered by data-i18n
+            renderProviderKeyTable();
+            renderProviderLoadStatus();
+            renderFilteredModelSelect();
+        });
+    }
 
     const updateCustomUrlVisibility = () => {
         customUrlPanel.style.display = selectedProvider === "custom" || Boolean(apiUrlInput.value.trim()) ? "block" : "none";
@@ -299,7 +329,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }).filter(Boolean);
 
         if (!visibleEntries.length) {
-            showStatus(statusEl, "No models are available to export.", "error");
+            showStatus(statusEl, t("options_export_empty", "No models are available to export."), "error");
             return;
         }
 
@@ -319,7 +349,7 @@ document.addEventListener("DOMContentLoaded", () => {
         link.download = `ai-model-list-${timestamp}.json`;
         link.click();
         URL.revokeObjectURL(url);
-        showStatus(statusEl, "Visible model list exported as JSON.", "success");
+        showStatus(statusEl, t("options_export_done", "Visible model list exported as JSON."), "success");
     };
 
     const loadModelsForProvider = async (provider) => {
@@ -329,12 +359,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (provider !== "openrouter" && !apiKey) {
             providerModelCatalog[provider] = [];
-            providerLoadStatus[provider] = { state: "skip", detail: "no API key" };
+            providerLoadStatus[provider] = { state: "skip", detail: t("options_skip_no_key", "no API key") };
             return { provider, ok: false, skipped: true };
         }
         if (provider === "custom" && !apiUrl) {
             providerModelCatalog[provider] = [];
-            providerLoadStatus[provider] = { state: "skip", detail: "no custom API URL" };
+            providerLoadStatus[provider] = { state: "skip", detail: t("options_skip_no_url", "no custom API URL") };
             return { provider, ok: false, skipped: true };
         }
 
@@ -347,7 +377,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!models.length) {
                 providerLoadStatus[provider] = {
                     state: "error",
-                    detail: "API responded but returned 0 usable chat models"
+                    detail: t("options_empty_catalog", "API responded but returned 0 usable chat models")
                 };
                 return { provider, ok: false, error: "empty catalog" };
             }
@@ -365,7 +395,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const loadAllProviderModels = async () => {
         const seq = ++loadSeq;
         loadModelsBtn.disabled = true;
-        setHint(modelsHint, "Loading models for every configured provider…");
+        setHint(modelsHint, t("options_loading_all", "Loading models for every configured provider…"));
         providerLoadStatus = {};
         PROVIDER_ORDER.forEach((provider) => {
             providerLoadStatus[provider] = { state: "loading", detail: "queued…" };
@@ -406,8 +436,8 @@ document.addEventListener("DOMContentLoaded", () => {
             setHint(
                 modelsHint,
                 failed.length
-                    ? "No provider returned models. Check the FAILED lines below (usually a bad/missing API key)."
-                    : "No API keys configured. Add at least one provider key, then load again.",
+                    ? t("options_none_failed", "No provider returned models. Check the FAILED lines below (usually a bad/missing API key).")
+                    : t("options_none_keys", "No API keys configured. Add at least one provider key, then load again."),
                 "error"
             );
             return;
@@ -416,12 +446,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (failed.length) {
             setHint(
                 modelsHint,
-                `Loaded ${ok.length} provider(s), but ${failed.length} failed. Only successful providers appear in the model list.`,
+                t("options_partial", `Loaded ${ok.length} provider(s), but ${failed.length} failed.`, [String(ok.length), String(failed.length)]),
                 "warn"
             );
         } else {
-            const skipNote = skipped.length ? ` (${skipped.length} skipped without key/URL)` : "";
-            setHint(modelsHint, `Loaded models from ${ok.length} provider(s)${skipNote}.`, "ok");
+            const skipNote = skipped.length
+                ? t("options_skip_note", ` (${skipped.length} skipped without key/URL)`, [String(skipped.length)])
+                : "";
+            setHint(modelsHint, t("options_loaded_ok", `Loaded models from ${ok.length} provider(s)${skipNote}.`, [String(ok.length), skipNote]), "ok");
         }
     };
 
@@ -478,12 +510,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const hasAnyKey = PROVIDER_ORDER.some((p) => (providerApiKeys[p] || "").trim()) ||
                 Boolean((s.apiKey || "").trim());
             if (hasAnyKey) {
-                setHint(modelsHint, "Loading models for configured providers…");
+                setHint(modelsHint, t("options_loading_configured", "Loading models for configured providers…"));
                 loadAllProviderModels().finally(() => {
                     loadModelsBtn.disabled = false;
                 });
             } else {
-                setHint(modelsHint, "Add provider API keys above, then click Load all models.", "");
+                setHint(modelsHint, t("options_add_keys", "Add provider API keys above, then click Load all models."), "");
             }
         }
     });
@@ -527,12 +559,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     exportModelsBtn.addEventListener("click", async () => {
         exportModelsBtn.disabled = true;
-        exportModelsBtn.textContent = "Exporting…";
+        exportModelsBtn.textContent = t("options_exporting", "Exporting…");
         try {
             await exportLoadedModels();
         } finally {
             exportModelsBtn.disabled = false;
-            exportModelsBtn.textContent = "Export model list";
+            exportModelsBtn.textContent = t("options_export_models", "Export model list");
         }
     });
 
@@ -555,12 +587,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 concurrency: 2,
                 reasoningEnabled: false,
                 streaming: true,
+                uiLang: "auto",
                 lastDebugRequest: null,
                 lastDebugCatalog: null
             };
 
             chrome.storage.local.set(defaults, () => {
-                showStatus(statusEl, "All settings cleared and reset to defaults.", "success");
+                showStatus(statusEl, t("options_reset_done", "All settings cleared and reset to defaults."), "success");
                 setTimeout(() => {
                     window.location.reload();
                 }, 200);
@@ -572,17 +605,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const provider = selectedProvider || "openai";
         const aiModel = selectedModel || resolveSelectedModel(modelSelect, modelInput) || (PROVIDER_PRESETS[provider] || {}).aiModel || "";
         if (engineSelect.value === "custom_llm" && !aiModel) {
-            showStatus(statusEl, "Please select a model", "error");
+            showStatus(statusEl, t("models_need_model", "Please select a model"), "error");
             return;
         }
         if (engineSelect.value === "custom_llm" && provider !== "openrouter" && provider !== "custom" && !(providerApiKeys[provider] || "").trim()) {
-            showStatus(statusEl, "Enter API key for the selected provider", "error");
+            showStatus(statusEl, t("options_need_key", "Enter API key for the selected provider"), "error");
             return;
         }
 
         const failedSelected = providerLoadStatus[provider] && providerLoadStatus[provider].state === "error";
         if (failedSelected) {
-            showStatus(statusEl, `${getProviderLabel(provider)} model list failed earlier: ${providerLoadStatus[provider].detail}`, "error");
+            showStatus(statusEl, t("options_provider_failed_earlier", `${getProviderLabel(provider)} model list failed earlier: ${providerLoadStatus[provider].detail}`, [getProviderLabel(provider), providerLoadStatus[provider].detail]), "error");
             return;
         }
 
@@ -603,16 +636,17 @@ document.addEventListener("DOMContentLoaded", () => {
             batchSize: parseInt(document.getElementById("batch-size").value) || 15,
             concurrency: parseInt(document.getElementById("concurrency").value) || 2,
             reasoningEnabled: document.getElementById("reasoning-toggle").checked,
-            streaming: document.getElementById("streaming-toggle").checked
+            streaming: document.getElementById("streaming-toggle").checked,
+            uiLang: (uiLangSelect && uiLangSelect.value) || "auto"
         };
 
         saveBtn.disabled = true;
-        saveBtn.textContent = "Saving...";
+        saveBtn.textContent = t("saving", "Saving...");
 
         chrome.storage.local.set(settings, () => {
-            showStatus(statusEl, "Settings saved. Reload the Crunchyroll tab to apply.", "success");
+            showStatus(statusEl, t("options_saved", "Settings saved. Reload the Crunchyroll tab to apply."), "success");
             saveBtn.disabled = false;
-            saveBtn.textContent = "Save";
+            saveBtn.textContent = t("save_button", "Save");
         });
     });
 

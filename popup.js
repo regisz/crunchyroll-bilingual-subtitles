@@ -10,11 +10,32 @@ function detectProvider(apiUrl, aiModel) {
     return "openai";
 }
 
-function t(key, fallback) {
-    return chrome.i18n.getMessage(key) || fallback || key;
+const t = (...args) => ExtI18n.t(...args);
+
+function applyPopupLabels() {
+    ExtI18n.applyStaticI18n(document);
+    ExtI18n.applySelectLabels();
+    const title = document.getElementById("title");
+    const labelLang = document.getElementById("label-lang");
+    const labelMode = document.getElementById("label-mode");
+    const labelEngine = document.getElementById("label-engine");
+    const labelModel = document.getElementById("label-model");
+    const loadModelsBtn = document.getElementById("load-models-btn");
+    const saveBtn = document.getElementById("save-btn");
+    const downloadEnBtn = document.getElementById("download-en-btn");
+    const modelInput = document.getElementById("ai-model");
+    if (title) title.textContent = t("popup_title");
+    if (labelLang) labelLang.textContent = t("target_language");
+    if (labelMode) labelMode.textContent = t("translation_mode");
+    if (labelEngine) labelEngine.textContent = t("translation_engine");
+    if (labelModel) labelModel.textContent = t("model_label");
+    if (loadModelsBtn) loadModelsBtn.textContent = t("load_models_button", "Load models");
+    if (saveBtn) saveBtn.textContent = t("save_button");
+    if (downloadEnBtn) downloadEnBtn.textContent = t("download_english_button", "Download English subtitle");
+    if (modelInput) modelInput.placeholder = t("model_placeholder");
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     const engineSelect = document.getElementById("engine-select");
     const modelSelect = document.getElementById("ai-model-select");
     const modelInput = document.getElementById("ai-model");
@@ -35,31 +56,16 @@ document.addEventListener("DOMContentLoaded", () => {
     let loadSeq = 0;
     let savedSettings = {};
 
-    document.getElementById("title").textContent = t("popup_title");
-    document.getElementById("label-lang").textContent = t("target_language");
-    document.getElementById("label-mode").textContent = t("translation_mode");
-    document.getElementById("label-engine").textContent = t("translation_engine");
-    document.getElementById("label-model").textContent = t("model_label");
-    loadModelsBtn.textContent = t("load_models_button", "Load models");
-    saveBtn.textContent = t("save_button");
-    if (downloadEnBtn) downloadEnBtn.textContent = t("download_english_button", "Download English subtitle");
-    modelInput.placeholder = t("model_placeholder");
+    try {
+        const uiLang = await ExtI18n.loadUiLangFromStorage();
+        await ExtI18n.applyUiLanguage(uiLang, applyPopupLabels);
+    } catch (e) {
+        console.warn("[CR Dual Subs] popup UI language failed", e);
+        await ExtI18n.applyUiLanguage("auto", applyPopupLabels);
+    }
 
     const langSelect = document.getElementById("lang-select");
     const modeSelect = document.getElementById("mode-select");
-
-    Array.from(langSelect.options).forEach(opt => {
-        const msg = chrome.i18n.getMessage("lang_" + opt.value.replace("-", "_").toLowerCase());
-        if (msg) opt.textContent = msg;
-    });
-    Array.from(modeSelect.options).forEach(opt => {
-        const msg = chrome.i18n.getMessage("mode_" + opt.value);
-        if (msg) opt.textContent = msg;
-    });
-    Array.from(engineSelect.options).forEach(opt => {
-        const msg = chrome.i18n.getMessage("engine_" + opt.value.replace("_llm", ""));
-        if (msg) opt.textContent = msg;
-    });
 
     const setHint = (msg, type = "") => {
         modelsHint.textContent = msg || "";

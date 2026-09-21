@@ -100,7 +100,7 @@
       <div class="item" style="margin-bottom: 0;">
         <select id="ai-model-select"></select>
       </div>
-      <button type="button" id="export-models-btn" class="btn-export">Export model list</button>
+      <button type="button" id="export-models-btn" class="btn-export" data-i18n="options_export_models">Export model list</button>
     </div>
     <input type="text" id="ai-model" placeholder="" style="display:none; margin-top:6px;">
     <div id="models-hint" class="hint"></div>
@@ -112,8 +112,9 @@
 
   <button id="save-btn"></button>
   <button id="download-en-btn" type="button" style="width: 100%; margin-top: 10px; padding: 9px; background: #1f3a2d; border: 1px solid #3f8f63; color: #c8f0d8; border-radius: 4px; cursor: pointer;"></button>
-  <button id="open-options-btn" type="button" style="width: 100%; margin-top: 10px; padding: 9px; background: #2a3d4f; border: 1px solid #4a7bb5; color: #dfeeff; border-radius: 4px; cursor: pointer;">Open full settings</button>
-  <button id="open-debug-btn" type="button" style="width: 100%; margin-top: 8px; padding: 9px; background: #3d2d1a; border: 1px solid #8d5b2a; color: #f4d7b1; border-radius: 4px; cursor: pointer;">Open debug</button>
+  <button id="open-options-btn" type="button" data-i18n="popup_open_options" style="width: 100%; margin-top: 10px; padding: 9px; background: #2a3d4f; border: 1px solid #4a7bb5; color: #dfeeff; border-radius: 4px; cursor: pointer;">Open full settings</button>
+  <button id="open-debug-btn" type="button" data-i18n="popup_open_debug" style="width: 100%; margin-top: 8px; padding: 9px; background: #3d2d1a; border: 1px solid #8d5b2a; color: #f4d7b1; border-radius: 4px; cursor: pointer;">Open debug</button>
+  <script src="i18n.js"></script>
   <script src="models-api.js"></script>
   <script src="popup.js"></script>
 </body>

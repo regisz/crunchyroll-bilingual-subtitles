@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Crunchyroll Bilingual Subtitles Debug</title>
+  <title data-i18n="debug_title">Debug</title>
   <style>
     :root {
       --bg: #121417;
@@ -96,36 +96,36 @@
 </head>
 <body>
   <div class="page">
-    <h1>Debug</h1>
+    <h1 data-i18n="debug_title">Debug</h1>
 
     <div class="panel">
       <div class="grid">
         <div class="box">
-          <span class="label">Provider</span>
+          <span class="label" data-i18n="debug_provider">Provider</span>
           <div id="debug-provider" class="value">—</div>
         </div>
         <div class="box">
-          <span class="label">Model</span>
+          <span class="label" data-i18n="debug_model">Model</span>
           <div id="debug-model" class="value">—</div>
         </div>
         <div class="box">
-          <span class="label">API URL</span>
+          <span class="label" data-i18n="debug_api_url">API URL</span>
           <div id="debug-api-url" class="value">—</div>
         </div>
         <div class="box">
-          <span class="label">API key</span>
+          <span class="label" data-i18n="debug_api_key">API key</span>
           <div id="debug-api-key" class="value">—</div>
         </div>
       </div>
     </div>
 
     <div class="panel">
-      <div class="label">Root cause</div>
+      <div class="label" data-i18n="debug_root_cause">Root cause</div>
       <pre id="debug-root-cause">No request recorded yet.</pre>
     </div>
 
     <div class="panel">
-      <div class="label">Latest request</div>
+      <div class="label" data-i18n="debug_latest_request">Latest request</div>
       <div id="debug-request-status" class="status warn">Waiting…</div>
       <div style="margin-top: 12px;">
         <pre id="debug-request-details">No request recorded yet.</pre>
@@ -133,17 +133,18 @@
     </div>
 
     <div class="panel">
-      <div class="label">Latest model catalog</div>
+      <div class="label" data-i18n="debug_latest_catalog">Latest model catalog</div>
       <pre id="debug-catalog">No catalog loaded yet.</pre>
     </div>
 
-    <div id="debug-warning" class="panel" style="display:none; border-color: #8d5b2a; background: rgba(141,91,42,0.12); color: #f4d7b1;">
+    <div id="debug-warning" class="panel" data-i18n="debug_warning" style="display:none; border-color: #8d5b2a; background: rgba(141,91,42,0.12); color: #f4d7b1;">
       This debug page must be opened from the extension UI. Open it from the popup or settings page to see runtime data.
     </div>
 
-    <button id="refresh-btn" type="button">Refresh</button>
+    <button id="refresh-btn" type="button" data-i18n="debug_refresh">Refresh</button>
   </div>
 
+  <script src="i18n.js"></script>
   <script src="debug.js"></script>
 </body>
 </html>
