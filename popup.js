@@ -66,6 +66,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const langSelect = document.getElementById("lang-select");
     const modeSelect = document.getElementById("mode-select");
+    const hideNativeSubsToggle = document.getElementById("hide-native-subs");
 
     const setHint = (msg, type = "") => {
         modelsHint.textContent = msg || "";
@@ -252,9 +253,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         batchSize: 15,
         concurrency: 2,
         reasoningEnabled: false,
-        streaming: true
+        streaming: true,
+        hideNativeSubs: false
     }, (s) => {
         savedSettings = s;
+        // Apply stored values to the selects (HTML defaults are zh-CN / google — not storage)
+        langSelect.value = s.secondLang || "hu-HU";
+        modeSelect.value = s.transMode || "fallback";
+        engineSelect.value = s.transEngine || "custom_llm";
+        if (!langSelect.value) langSelect.value = "hu-HU";
+        if (!modeSelect.value) modeSelect.value = "fallback";
+        if (!engineSelect.value) engineSelect.value = "custom_llm";
+        if (hideNativeSubsToggle) hideNativeSubsToggle.checked = !!s.hideNativeSubs;
+
         currentProvider = s.aiProvider || detectProvider(s.apiUrl, s.aiModel);
         currentApiKey = (s.providerApiKeys && s.providerApiKeys[currentProvider]) || s.apiKey || "";
         currentApiUrl = s.apiUrl || (PROVIDER_PRESETS[currentProvider] || {}).apiUrl || "";
@@ -262,6 +273,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         modelInput.value = preferredModel;
 
         clearModelList();
+        // Keep preferred model visible even before the catalog loads
+        if (preferredModel) {
+            fillModelSelect([], preferredModel);
+        }
         updateVisibility();
 
         if (engineSelect.value === "custom_llm") {
@@ -327,7 +342,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     saveBtn.addEventListener("click", () => {
-        const aiModel = resolveSelectedModel();
+        const aiModel = resolveSelectedModel() || preferredModel || "";
         if (engineSelect.value === "custom_llm" && !aiModel) {
             showStatus(t("models_need_model", "Please select a model"), "error");
             return;
@@ -338,6 +353,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const settings = {
             ...savedSettings,
+            secondLang: langSelect.value || savedSettings.secondLang || "hu-HU",
+            transMode: modeSelect.value || savedSettings.transMode || "fallback",
+            transEngine: engineSelect.value || savedSettings.transEngine || "custom_llm",
+            hideNativeSubs: !!(hideNativeSubsToggle && hideNativeSubsToggle.checked),
             aiProvider: currentProvider,
             apiUrl: currentApiUrl,
             aiModel,
@@ -349,10 +368,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         saveBtn.textContent = t("saving");
 
         chrome.storage.local.set(settings, () => {
+            savedSettings = { ...savedSettings, ...settings };
+            preferredModel = aiModel;
             showStatus(t("saved_refreshing"), "success");
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                 if (tabs[0]) chrome.tabs.reload(tabs[0].id);
             });
+            saveBtn.disabled = false;
+            saveBtn.textContent = t("save_button");
         });
     });
 

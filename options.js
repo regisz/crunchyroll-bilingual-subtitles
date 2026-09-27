@@ -294,8 +294,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    const isBuiltInProviderUrl = (url) => {
+        const u = (url || "").trim();
+        if (!u) return true;
+        return Object.values(PROVIDER_PRESETS).some((entry) => entry && entry.apiUrl && entry.apiUrl === u);
+    };
+
     const updateCustomUrlVisibility = () => {
-        customUrlPanel.style.display = selectedProvider === "custom" || Boolean(apiUrlInput.value.trim()) ? "block" : "none";
+        // Show only for explicit custom provider, or a truly custom (non-preset) URL.
+        // Built-in OpenAI/Gemini/Claude/OpenRouter URLs are filled automatically — not user input.
+        const url = apiUrlInput.value.trim();
+        const show = selectedProvider === "custom" || (Boolean(url) && !isBuiltInProviderUrl(url));
+        customUrlPanel.style.display = show ? "block" : "none";
     };
 
     const syncSelectedProviderUrl = (provider, force = false) => {
@@ -489,6 +499,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         concurrency: 2,
         reasoningEnabled: false,
         streaming: true,
+        hideNativeSubs: false,
         providerApiKeys: {}
     }, (s) => {
         langSelect.value = s.secondLang || "hu-HU";
@@ -496,8 +507,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         engineSelect.value = s.transEngine || "custom_llm";
         const reasoningToggle = document.getElementById("reasoning-toggle");
         const streamingToggle = document.getElementById("streaming-toggle");
+        const hideNativeToggle = document.getElementById("hide-native-subs-toggle");
         if (reasoningToggle) reasoningToggle.checked = !!s.reasoningEnabled;
         if (streamingToggle) streamingToggle.checked = s.streaming !== false;
+        if (hideNativeToggle) hideNativeToggle.checked = !!s.hideNativeSubs;
         const batchInput = document.getElementById("batch-size");
         const concurrencyInput = document.getElementById("concurrency");
         if (batchInput) batchInput.value = s.batchSize || 15;
@@ -587,9 +600,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 concurrency: 2,
                 reasoningEnabled: false,
                 streaming: true,
+                hideNativeSubs: false,
                 uiLang: "auto",
                 lastDebugRequest: null,
-                lastDebugCatalog: null
+                lastDebugCatalog: null,
+                lastDebugPlayback: null
             };
 
             chrome.storage.local.set(defaults, () => {
@@ -637,6 +652,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             concurrency: parseInt(document.getElementById("concurrency").value) || 2,
             reasoningEnabled: document.getElementById("reasoning-toggle").checked,
             streaming: document.getElementById("streaming-toggle").checked,
+            hideNativeSubs: !!(document.getElementById("hide-native-subs-toggle")
+                && document.getElementById("hide-native-subs-toggle").checked),
             uiLang: (uiLangSelect && uiLangSelect.value) || "auto"
         };
 
