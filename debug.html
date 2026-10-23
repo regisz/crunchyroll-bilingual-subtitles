@@ -82,6 +82,13 @@
       line-height: 1.55;
       color: var(--text);
     }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+      align-items: center;
+    }
     button {
       background: var(--accent);
       color: white;
@@ -90,8 +97,18 @@
       padding: 10px 14px;
       cursor: pointer;
       font-weight: 700;
-      margin-top: 10px;
     }
+    button.secondary {
+      background: #2a3140;
+      border: 1px solid var(--border);
+    }
+    #export-status {
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 1.2em;
+    }
+    #export-status.ok { color: var(--success); }
+    #export-status.err { color: var(--error); }
   </style>
 </head>
 <body>
@@ -120,6 +137,76 @@
     </div>
 
     <div class="panel">
+      <div class="label" data-i18n="debug_playback">Playback / subtitle pipeline</div>
+      <div id="debug-playback-status" class="status warn">Waiting…</div>
+      <div class="grid" style="margin-top: 12px;">
+        <div class="box">
+          <span class="label" data-i18n="debug_platform">Platform</span>
+          <div id="debug-platform" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label" data-i18n="debug_playback_event">Last event</span>
+          <div id="debug-playback-event" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label" data-i18n="debug_cue_count">Cues</span>
+          <div id="debug-cue-count" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label" data-i18n="debug_video_time">Video time</span>
+          <div id="debug-video-time" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label" data-i18n="debug_cue_range">Cue range</span>
+          <div id="debug-cue-range" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label" data-i18n="debug_overlay">Overlay</span>
+          <div id="debug-overlay" class="value">—</div>
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <div class="label" data-i18n="debug_playback_hint">Pipeline hint</div>
+        <pre id="debug-playback-hint">No playback event recorded yet. Play a video with subtitles on, then refresh.</pre>
+      </div>
+      <div style="margin-top: 12px;">
+        <div class="label" data-i18n="debug_playback_raw">Raw playback snapshot</div>
+        <pre id="debug-playback">No playback event recorded yet.</pre>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="label" data-i18n="debug_hide_native">Hide original (site) subtitles</div>
+      <div id="debug-hide-native-status" class="status warn">Waiting…</div>
+      <div class="grid" style="margin-top: 12px;">
+        <div class="box">
+          <span class="label" data-i18n="debug_hide_native_enabled">Enabled</span>
+          <div id="debug-hide-native-enabled" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label" data-i18n="debug_hide_native_status_label">Status</span>
+          <div id="debug-hide-native-status-code" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label" data-i18n="debug_hide_native_targets">Known targets</span>
+          <div id="debug-hide-native-targets" class="value">—</div>
+        </div>
+        <div class="box">
+          <span class="label" data-i18n="debug_hide_native_leaks">Leak candidates</span>
+          <div id="debug-hide-native-leaks" class="value">—</div>
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <div class="label" data-i18n="debug_hide_native_hint">Hide hint</div>
+        <pre id="debug-hide-native-hint">Open a player with this setting on, then refresh.</pre>
+      </div>
+      <div style="margin-top: 12px;">
+        <div class="label" data-i18n="debug_hide_native_raw">Raw hide-native snapshot</div>
+        <pre id="debug-hide-native">No hide-native snapshot yet.</pre>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="label" data-i18n="debug_root_cause">Root cause</div>
       <pre id="debug-root-cause">No request recorded yet.</pre>
     </div>
@@ -141,7 +228,12 @@
       This debug page must be opened from the extension UI. Open it from the popup or settings page to see runtime data.
     </div>
 
-    <button id="refresh-btn" type="button" data-i18n="debug_refresh">Refresh</button>
+    <div class="actions">
+      <button id="refresh-btn" type="button" data-i18n="debug_refresh">Refresh</button>
+      <button id="copy-debug-btn" type="button" class="secondary" data-i18n="debug_copy">Copy report</button>
+      <button id="download-debug-btn" type="button" class="secondary" data-i18n="debug_download">Download JSON</button>
+      <span id="export-status" aria-live="polite"></span>
+    </div>
   </div>
 
   <script src="i18n.js"></script>

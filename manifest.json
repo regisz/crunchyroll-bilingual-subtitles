@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "__MSG_extension_name__",
-    "version": "2.0.1",
+    "version": "2.1.0",
     "description": "__MSG_extension_description__",
     "permissions": [
         "storage"
@@ -22,17 +22,62 @@
     "content_scripts": [
         {
             "matches": [
-                "*://*.crunchyroll.com/*"
+                "*://*.crunchyroll.com/*",
+                "*://static.crunchyroll.com/*"
             ],
             "js": [
                 "inject.js"
+            ],
+            "run_at": "document_start",
+            "world": "MAIN",
+            "all_frames": true
+        },
+        {
+            "matches": [
+                "*://*.crunchyroll.com/*",
+                "*://static.crunchyroll.com/*"
+            ],
+            "css": [
+                "content.css"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_start"
+        },
+        {
+            "matches": [
+                "*://*.primevideo.com/*",
+                "*://*.amazon.com/gp/video/*",
+                "*://*.amazon.co.uk/gp/video/*",
+                "*://*.amazon.de/gp/video/*",
+                "*://*.amazon.co.jp/gp/video/*",
+                "*://*.amazon.fr/gp/video/*",
+                "*://*.amazon.it/gp/video/*",
+                "*://*.amazon.es/gp/video/*",
+                "*://*.amazon.ca/gp/video/*",
+                "*://*.amazon.com.au/gp/video/*",
+                "*://*.amazon.in/gp/video/*"
+            ],
+            "js": [
+                "inject-prime.js"
             ],
             "run_at": "document_start",
             "world": "MAIN"
         },
         {
             "matches": [
-                "*://*.crunchyroll.com/*"
+                "*://*.primevideo.com/*",
+                "*://*.amazon.com/gp/video/*",
+                "*://*.amazon.co.uk/gp/video/*",
+                "*://*.amazon.de/gp/video/*",
+                "*://*.amazon.co.jp/gp/video/*",
+                "*://*.amazon.fr/gp/video/*",
+                "*://*.amazon.it/gp/video/*",
+                "*://*.amazon.es/gp/video/*",
+                "*://*.amazon.ca/gp/video/*",
+                "*://*.amazon.com.au/gp/video/*",
+                "*://*.amazon.in/gp/video/*"
             ],
             "css": [
                 "content.css"
@@ -49,7 +94,26 @@
                 "inject.js"
             ],
             "matches": [
-                "*://*.crunchyroll.com/*"
+                "*://*.crunchyroll.com/*",
+                "*://static.crunchyroll.com/*"
+            ]
+        },
+        {
+            "resources": [
+                "inject-prime.js"
+            ],
+            "matches": [
+                "*://*.primevideo.com/*",
+                "*://*.amazon.com/*",
+                "*://*.amazon.co.uk/*",
+                "*://*.amazon.de/*",
+                "*://*.amazon.co.jp/*",
+                "*://*.amazon.fr/*",
+                "*://*.amazon.it/*",
+                "*://*.amazon.es/*",
+                "*://*.amazon.ca/*",
+                "*://*.amazon.com.au/*",
+                "*://*.amazon.in/*"
             ]
         }
     ],

@@ -203,6 +203,9 @@
     "toast_no_dialogue": {
         "message": "No dialogue parsed!"
     },
+    "toast_cr_native_restore_hint": {
+        "message": "CR: trying to restore softsubs. If English stays missing, reload the episode with hide off (burned-in stream)."
+    },
     "style_adjust_btn": {
         "message": "Style Settings"
     },
@@ -361,6 +364,15 @@
     },
     "options_reasoning_title": {
         "message": "Enable deeper reasoning for compatible models"
+    },
+    "options_hide_native_subs": {
+        "message": "Hide original (site) subtitles"
+    },
+    "options_hide_native_subs_help": {
+        "message": "Hides the player’s own captions on screen (e.g. English on Prime). Keep English captions enabled in the player so the extension can still receive the timed-text source."
+    },
+    "options_hide_native_subs_title": {
+        "message": "Hide native player captions visually"
     },
     "options_streaming": {
         "message": "Advanced: streaming subtitles"
@@ -592,8 +604,188 @@
     "debug_latest_catalog": {
         "message": "Latest model catalog"
     },
+    "debug_playback": {
+        "message": "Playback / subtitle pipeline"
+    },
+    "debug_platform": {
+        "message": "Platform"
+    },
+    "debug_playback_event": {
+        "message": "Last event"
+    },
+    "debug_cue_count": {
+        "message": "Cues"
+    },
+    "debug_video_time": {
+        "message": "Video time"
+    },
+    "debug_cue_range": {
+        "message": "Cue range"
+    },
+    "debug_overlay": {
+        "message": "Overlay"
+    },
+    "debug_overlay_yes": {
+        "message": "attached"
+    },
+    "debug_overlay_no": {
+        "message": "not yet"
+    },
+    "debug_playback_hint": {
+        "message": "Pipeline hint"
+    },
+    "debug_playback_raw": {
+        "message": "Raw playback snapshot"
+    },
+    "debug_playback_none": {
+        "message": "No playback event recorded yet. Play a video with subtitles on, then refresh."
+    },
+    "debug_playback_hint_disabled": {
+        "message": "Target language is set to none — overlay is intentionally off."
+    },
+    "debug_playback_hint_native": {
+        "message": "Official-only mode is not supported on Prime yet. Use AI fallback or force AI, with English captions enabled."
+    },
+    "debug_playback_hint_parse": {
+        "message": "TTML/manifest was captured but cues could not be parsed. Check the raw snapshot sampleHead / error."
+    },
+    "debug_playback_hint_waiting_player": {
+        "message": "Waiting for a real Prime player (not the collapsed ~50px detail-page video). Click play and wait for the full player."
+    },
+    "debug_playback_hint_layout": {
+        "message": "Overlay is not on the video frame (wrong/page-tall container, or off-screen). Check containerH vs videoH and textTop vs videoTop."
+    },
+    "debug_playback_hint_layout_ok": {
+        "message": "Overlay layout looks reasonable (full player shell, not top-left)."
+    },
+    "debug_playback_hint_active": {
+        "message": "A subtitle cue is active on the player. Pipeline looks healthy."
+    },
+    "debug_playback_hint_between": {
+        "message": "No line at this exact moment — normal pause between dialogue cues. Not a sync failure."
+    },
+    "debug_playback_hint_sync": {
+        "message": "Cues are loaded but the nearest cue is far from video time. Likely a timing/base mismatch."
+    },
+    "debug_playback_hint_waiting_overlay": {
+        "message": "Cues are ready; waiting for the player/video element to attach the overlay."
+    },
+    "debug_playback_hint_ok": {
+        "message": "Pipeline reached the player. If you still see no text, watch for sync_miss or check z-index / translation errors below."
+    },
+    "debug_playback_hint_received": {
+        "message": "Subtitle source was captured. If this does not advance to cues_ready, parsing failed."
+    },
+    "debug_playback_hint_generic": {
+        "message": "See the raw playback snapshot for details."
+    },
+    "debug_hide_native": {
+        "message": "Hide original (site) subtitles"
+    },
+    "debug_hide_native_enabled": {
+        "message": "Enabled"
+    },
+    "debug_hide_native_status_label": {
+        "message": "Status"
+    },
+    "debug_hide_native_targets": {
+        "message": "Known targets"
+    },
+    "debug_hide_native_leaks": {
+        "message": "Leak candidates"
+    },
+    "debug_hide_native_hint": {
+        "message": "Hide hint"
+    },
+    "debug_hide_native_raw": {
+        "message": "Raw hide-native snapshot"
+    },
+    "debug_hide_native_none": {
+        "message": "No hide-native snapshot yet. Open a player page, toggle the setting, wait a few seconds, then refresh."
+    },
+    "debug_hide_native_hint_disabled": {
+        "message": "Hide original subtitles is off. Turn it on in the popup/options, keep site English captions enabled."
+    },
+    "debug_hide_native_hint_ok": {
+        "message": "Native softsub layer looks fully suppressed (shell display:none, no DOM leak). On-screen extension text is ourOverlayTextSample (not playback.activeText). If you still see English in the picture itself — especially game UI / skill popups — that is burned into the video frames and cannot be hidden by CSS. After an extension update, hard-reload the watch page so hardSubs→clean stream rewrite can run."
+    },
+    "debug_hide_native_hint_ok_hardsubs_rewritten": {
+        "message": "Softsubs are suppressed, and hardSubs streams were repointed to the clean (no burned-in text) manifest. Reload the episode once after enabling hide so the player fetches the new stream. If English remains after reload, it is game UI burned into every encode."
+    },
+    "debug_hide_native_hint_ok_hardsubs_no_clean": {
+        "message": "Softsubs are suppressed, but this title has no clean video stream (only hardsubs). English dialogue in the picture cannot be removed by CSS — only the extension overlay can show a translation on top."
+    },
+    "debug_hide_native_hint_texttrack": {
+        "message": "A native HTML TextTrack is still in mode=showing. See mainWorld.videoTextTracks."
+    },
+    "debug_hide_native_hint_waiting_canvas": {
+        "message": "DOM subtitle shell is hidden, but no ASS canvas draw was intercepted yet. Play while dialogue is on screen, then refresh — suppressedCanvasOps should rise if the hook is working."
+    },
+    "debug_hide_native_hint_bare_leak": {
+        "message": "A child inside the CR subtitle shell is still visible (visibility:visible can override a hidden parent). See crBareShellLeak — display:none on the shell should stop this."
+    },
+    "debug_hide_native_hint_api_ok": {
+        "message": "Bitmovin subtitle tracks were disabled via the player API (MAIN world). Native ASS should no longer paint."
+    },
+    "debug_hide_native_hint_api_no_player": {
+        "message": "Hide is on, but no Bitmovin player instance was hooked yet. Wait for playback to start, or reload the watch page after enabling the extension."
+    },
+    "debug_hide_native_hint_api_no_tracks": {
+        "message": "Player hooked, but subtitle track list is empty. Enable English captions in the CR player, then wait a moment."
+    },
+    "debug_hide_native_hint_api_still": {
+        "message": "Player API disable ran, but at least one subtitle track is still enabled. See mainWorld.tracks in the raw snapshot."
+    },
+    "debug_hide_native_hint_dom_api_pending": {
+        "message": "No light-DOM caption nodes (normal on modern CR). Waiting on Bitmovin API hide — see mainWorld in the raw snapshot."
+    },
+    "debug_hide_native_hint_style_missing": {
+        "message": "Setting is on but the hide CSS was removed from the page — content script may not be running on this tab."
+    },
+    "debug_hide_native_hint_known_visible": {
+        "message": "Hide is on, but a known caption target is still visible. See knownVisible in the raw snapshot (selector / id / canvas)."
+    },
+    "debug_hide_native_hint_leak": {
+        "message": "Hide is on and known selectors look hidden, but other lower-screen nodes still look like captions. See leakCandidates — that is the next selector to add."
+    },
+    "debug_hide_native_hint_no_targets": {
+        "message": "Player found, but none of our known caption selectors matched. Native UI may have renamed nodes — use leakCandidates / canvases."
+    },
+    "debug_hide_native_hint_waiting": {
+        "message": "Hide is on, waiting for a recognizable player shell. Start playback and wait a moment."
+    },
+    "debug_hide_native_hint_generic": {
+        "message": "See the raw hide-native snapshot for details."
+    },
+    "debug_yes": {
+        "message": "yes"
+    },
+    "debug_no": {
+        "message": "no"
+    },
     "debug_refresh": {
         "message": "Refresh"
+    },
+    "debug_copy": {
+        "message": "Copy report"
+    },
+    "debug_download": {
+        "message": "Download JSON"
+    },
+    "debug_copied": {
+        "message": "Copied to clipboard."
+    },
+    "debug_copy_failed": {
+        "message": "Copy failed — use Download JSON instead."
+    },
+    "debug_downloaded": {
+        "message": "JSON download started."
+    },
+    "debug_download_failed": {
+        "message": "Download failed."
+    },
+    "debug_export_empty": {
+        "message": "Nothing to export yet."
     },
     "debug_waiting": {
         "message": "Waiting…"

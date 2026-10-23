@@ -200,6 +200,9 @@
     "toast_no_dialogue": {
         "message": "Nem volt feldolgozható párbeszéd!"
     },
+    "toast_cr_native_restore_hint": {
+        "message": "CR: softsub visszaállítás folyamatban. Ha az angol továbbra sem jön vissza, töltsd újra az epizódot kikapcsolt elrejtéssel (égetett stream)."
+    },
     "style_adjust_btn": {
         "message": "Stílusbeállítások"
     },
@@ -310,6 +313,15 @@
     },
     "options_reasoning_title": {
         "message": "Mélyebb gondolkodás a kompatibilis modelleknél"
+    },
+    "options_hide_native_subs": {
+        "message": "Eredeti (oldal) felirat elrejtése"
+    },
+    "options_hide_native_subs_help": {
+        "message": "Elrejti a player saját feliratát a képernyőn (pl. angol a Prime-on). Az angol feliratot a playerben hagyd bekapcsolva, hogy a bővítmény továbbra is megkapja a timed-text forrást."
+    },
+    "options_hide_native_subs_title": {
+        "message": "Natív player-felirat vizuális elrejtése"
     },
     "options_streaming": {
         "message": "Haladó: folyamatos felirat"
@@ -541,8 +553,188 @@
     "debug_latest_catalog": {
         "message": "Utolsó modellkatalógus"
     },
+    "debug_playback": {
+        "message": "Lejátszás / felirat pipeline"
+    },
+    "debug_platform": {
+        "message": "Platform"
+    },
+    "debug_playback_event": {
+        "message": "Utolsó esemény"
+    },
+    "debug_cue_count": {
+        "message": "Cue-k"
+    },
+    "debug_video_time": {
+        "message": "Videó idő"
+    },
+    "debug_cue_range": {
+        "message": "Cue tartomány"
+    },
+    "debug_overlay": {
+        "message": "Overlay"
+    },
+    "debug_overlay_yes": {
+        "message": "csatlakoztatva"
+    },
+    "debug_overlay_no": {
+        "message": "még nem"
+    },
+    "debug_playback_hint": {
+        "message": "Pipeline tipp"
+    },
+    "debug_playback_raw": {
+        "message": "Nyers playback snapshot"
+    },
+    "debug_playback_none": {
+        "message": "Még nincs lejátszási esemény. Indíts egy videót felirattal, majd frissíts."
+    },
+    "debug_playback_hint_disabled": {
+        "message": "A célnyelv „none” — az overlay szándékosan ki van kapcsolva."
+    },
+    "debug_playback_hint_native": {
+        "message": "Az „official only” mód Prime-on még nincs. Használj AI fallback / force AI módot, angol felirattal."
+    },
+    "debug_playback_hint_parse": {
+        "message": "A TTML/manifest megjött, de a cue-k nem parseolhatók. Nézd a nyers snapshot sampleHead / error mezőjét."
+    },
+    "debug_playback_hint_waiting_player": {
+        "message": "Várunk a valódi Prime playerre (nem a ~50px-es detail oldali stub videóra). Kattints a lejátszásra, és várd meg a teljes playert."
+    },
+    "debug_playback_hint_layout": {
+        "message": "Az overlay nincs a videókereten (rossz/oldalmagas konténer, vagy képernyőn kívül). Nézd: containerH vs videoH, textTop vs videoTop."
+    },
+    "debug_playback_hint_layout_ok": {
+        "message": "Az overlay elrendezése rendben tűnik (teljes player, nem bal felső sarok)."
+    },
+    "debug_playback_hint_active": {
+        "message": "Épp aktív felirat-cue van a playernél. A pipeline rendben van."
+    },
+    "debug_playback_hint_between": {
+        "message": "Ebben a pillanatban nincs sor — normál szünet a dialógusok között. Nem szinkronhiba."
+    },
+    "debug_playback_hint_sync": {
+        "message": "A cue-k betöltődtek, de a legközelebbi cue messze van a videóidejétől. Valószínű időalap-eltérés."
+    },
+    "debug_playback_hint_waiting_overlay": {
+        "message": "A cue-k készen vannak; a player/video elemre várunk az overlay csatolásához."
+    },
+    "debug_playback_hint_ok": {
+        "message": "A pipeline eljutott a playerig. Ha mégsem látszik szöveg, figyeld a sync_miss-t, vagy az API hibát lentebb."
+    },
+    "debug_playback_hint_received": {
+        "message": "A feliratforrás megérkezett. Ha nem lép tovább cues_ready-re, a parse elbukott."
+    },
+    "debug_playback_hint_generic": {
+        "message": "Részletek a nyers playback snapshotban."
+    },
+    "debug_hide_native": {
+        "message": "Eredeti (site) felirat elrejtése"
+    },
+    "debug_hide_native_enabled": {
+        "message": "Bekapcsolva"
+    },
+    "debug_hide_native_status_label": {
+        "message": "Állapot"
+    },
+    "debug_hide_native_targets": {
+        "message": "Ismert célok"
+    },
+    "debug_hide_native_leaks": {
+        "message": "Szivárgás-jelöltek"
+    },
+    "debug_hide_native_hint": {
+        "message": "Elrejtés tipp"
+    },
+    "debug_hide_native_raw": {
+        "message": "Nyers hide-native snapshot"
+    },
+    "debug_hide_native_none": {
+        "message": "Még nincs hide-native snapshot. Nyiss player oldalt, kapcsold be a beállítást, várj pár másodpercet, majd frissíts."
+    },
+    "debug_hide_native_hint_disabled": {
+        "message": "Az eredeti felirat elrejtése ki van kapcsolva. Kapcsold be a popupban/beállításokban; a site angol feliratát hagyd bekapcsolva."
+    },
+    "debug_hide_native_hint_ok": {
+        "message": "A natív softsub réteg teljesen elnyomva tűnik (shell display:none, nincs DOM-szivárgás). A kiterjesztés képernyős szövege az ourOverlayTextSample (nem a playback.activeText). Ha a KÉPBEN mégis angol van — főleg játék UI / skill felirat — az a videóba van égetve, CSS-sel nem takarható. Bővítmény-frissítés után hard-reloadold a watch oldalt, hogy a hardSubs→tiszta stream átírás lefusson."
+    },
+    "debug_hide_native_hint_ok_hardsubs_rewritten": {
+        "message": "A softsub elnyomva, és a hardSubs streameket átirányítottuk a tiszta (égetett szöveg nélküli) manifesztre. Az elrejtés bekapcsolása után egyszer töltsd újra az epizódot, hogy a player az új streamet kérje. Ha reload után is angol van a képben, az játék-UI, ami minden encode-ba bele van égetve."
+    },
+    "debug_hide_native_hint_ok_hardsubs_no_clean": {
+        "message": "A softsub elnyomva, de ehhez a címhez nincs tiszta videóstream (csak hardsub). A képben lévő angol párbeszéd CSS-sel nem távolítható el — csak a bővítmény overlay tud fordítást rátenni."
+    },
+    "debug_hide_native_hint_texttrack": {
+        "message": "Egy natív HTML TextTrack még mindig mode=showing. Nézd a mainWorld.videoTextTracks mezőt."
+    },
+    "debug_hide_native_hint_waiting_canvas": {
+        "message": "A DOM felirat-shell el van rejtve, de még nem fogtunk ASS canvas rajzolást. Játsz le egy dialógusos részt, majd frissíts — ha a hook él, a suppressedCanvasOps nőni fog."
+    },
+    "debug_hide_native_hint_bare_leak": {
+        "message": "A CR felirat-shell egy gyereke még látszik (a visibility:visible felülírhatja a szülő hidden-jét). Nézd a crBareShellLeak-et — a shell display:none-ja ezt el kellene vágja."
+    },
+    "debug_hide_native_hint_api_ok": {
+        "message": "A Bitmovin felirat-trackek ki vannak kapcsolva a player API-n (MAIN world). A natív ASS-nek nem kellene látszania."
+    },
+    "debug_hide_native_hint_api_no_player": {
+        "message": "Az elrejtés be van kapcsolva, de még nincs behúzva Bitmovin player példány. Indítsd a lejátszást, vagy töltsd újra a watch oldalt az extension betöltése után."
+    },
+    "debug_hide_native_hint_api_no_tracks": {
+        "message": "A player megvan, de a felirat-track lista üres. Kapcsold be az angol feliratot a CR playerben, majd várj egy pillanatot."
+    },
+    "debug_hide_native_hint_api_still": {
+        "message": "A player API disable lefutott, de legalább egy felirat-track még enabled. Nézd a mainWorld.tracks mezőt a nyers snapshotban."
+    },
+    "debug_hide_native_hint_dom_api_pending": {
+        "message": "Nincs light-DOM felirat-node (modern CR-en ez normális). A Bitmovin API elrejtésre várunk — nézd a mainWorld blokkot."
+    },
+    "debug_hide_native_hint_style_missing": {
+        "message": "A beállítás be van kapcsolva, de a hide CSS hiányzik az oldalról — lehet, hogy a content script nem fut ezen a tabon."
+    },
+    "debug_hide_native_hint_known_visible": {
+        "message": "Az elrejtés be van kapcsolva, de egy ismert felirat-cél még látszik. Nézd a knownVisible mezőt a nyers snapshotban (selector / id / canvas)."
+    },
+    "debug_hide_native_hint_leak": {
+        "message": "Az elrejtés be van, az ismert selectorek elrejtve tűnnek, de más alsó képernyős elemek még feliratnak látszanak. Nézd a leakCandidates-t — ez a következő selector."
+    },
+    "debug_hide_native_hint_no_targets": {
+        "message": "Van player, de egyik ismert felirat-selector sem talált. A natív UI átnevezhette a node-okat — használd a leakCandidates / canvases listát."
+    },
+    "debug_hide_native_hint_waiting": {
+        "message": "Az elrejtés be van kapcsolva, várunk felismerhető player shellre. Indítsd a lejátszást, és várj egy pillanatot."
+    },
+    "debug_hide_native_hint_generic": {
+        "message": "Részletek a nyers hide-native snapshotban."
+    },
+    "debug_yes": {
+        "message": "igen"
+    },
+    "debug_no": {
+        "message": "nem"
+    },
     "debug_refresh": {
         "message": "Frissítés"
+    },
+    "debug_copy": {
+        "message": "Másolás vágólapra"
+    },
+    "debug_download": {
+        "message": "JSON mentése"
+    },
+    "debug_copied": {
+        "message": "Vágólapra másolva."
+    },
+    "debug_copy_failed": {
+        "message": "A másolás nem sikerült — használd a JSON mentését."
+    },
+    "debug_downloaded": {
+        "message": "JSON letöltés elindult."
+    },
+    "debug_download_failed": {
+        "message": "A mentés nem sikerült."
+    },
+    "debug_export_empty": {
+        "message": "Még nincs mit exportálni."
     },
     "debug_waiting": {
         "message": "Várakozás…"
